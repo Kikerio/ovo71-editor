@@ -71,13 +71,17 @@ button:active { transform: scale(0.95); }
     word-break: break-word; 
     display: inline-block; 
     transform-style: preserve-3d; 
-    pointer-events: auto !important; /* Abilita clic sul testo */
+    pointer-events: auto !important;
     position: relative;
     border: 1px solid transparent;
 }
-.clip-text * { pointer-events: none !important; } /* Ferma i div interni (le lettere) dal bloccare il clic */
-.clip-text:hover { cursor: pointer; border: 1px dashed rgba(255,255,255,0.3); }
 
+/* FIX CRITICO: Impedisce alle lettere di scontrarsi col clic principale del box */
+.clip-text .word, .clip-text .char { 
+    pointer-events: none !important; 
+}
+
+.clip-text:hover { cursor: pointer; border: 1px dashed rgba(255,255,255,0.3); }
 .clip-text.is-editing { border: 2px dashed #0A84FF; cursor: move; z-index: 50; }
 
 .resize-handle {
@@ -85,7 +89,8 @@ button:active { transform: scale(0.95); }
     width: 16px; height: 16px; 
     background: #0A84FF; border: 2px solid white; 
     border-radius: 50%; cursor: nwse-resize; 
-    display: none; z-index: 100; pointer-events: auto;
+    display: none; z-index: 100; 
+    pointer-events: auto !important; /* Abilita il trascinamento del pallino */
 }
 .clip-text.is-editing .resize-handle { display: block; }
 
