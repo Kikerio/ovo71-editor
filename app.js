@@ -2,6 +2,7 @@
 let trackText = [];
 let trackBg = [];
 let trackAudio = []; 
+let customGuides = { h: [], v: [] }; // Memoria per le linee guida
 
 let masterTimeline = null;
 let isPlaying = false;
@@ -18,11 +19,11 @@ let selectedTrackType = null;
 let selectedGlobalIndex = -1;
 let clipboard = null;
 
-// === GESTIONE PROGETTI ===
+// === GESTIONE PROGETTI E GUIDE ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
     if (!projectName) { alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE."); return; }
-    const projectData = { name: projectName, duration: MASTER_DURATION, font: currentFontFamily, tracks: { text: trackText, bg: trackBg, audio: trackAudio } };
+    const projectData = { name: projectName, duration: MASTER_DURATION, font: currentFontFamily, tracks: { text: trackText, bg: trackBg, audio: trackAudio }, guides: customGuides };
     let projects = JSON.parse(localStorage.getItem('ovo71_projects')) || {};
     projects[projectName] = projectData;
     localStorage.setItem('ovo71_projects', JSON.stringify(projects));
@@ -44,14 +45,90 @@ function loadProject(name) {
         const p = projects[name]; currentProjectName = p.name; document.getElementById('project-name').value = p.name;
         MASTER_DURATION = p.duration; document.getElementById('master-duration').value = p.duration;
         currentFontFamily = p.font; trackText = p.tracks.text || []; trackBg = p.tracks.bg || []; trackAudio = p.tracks.audio || [];
+        customGuides = p.guides || { h: [], v: [] };
+        
         exitEditMode();
+        renderCustomGuides();
     }
 }
 
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
 loadProjectsList();
 
-// === UI E GUIDE ===
+// === SISTEMA GRIGLIE E RIGHELLI ===
+function initRulers() {
+    const rh = document.getElementById('stage-ruler-h');
+    const rv = document.getElementById('stage-ruler-v');
+    rh.innerHTML = ''; rv.innerHTML = '';
+    for(let i=0; i<=1920; i+=100) {
+        let t = document.createElement('div'); t.className = 'stage-tick-h'; t.style.left = `${i}px`; t.innerText = i; rh.appendChild(t);
+    }
+    for(let i=0; i<=1080; i+=100) {
+        let t = document.createElement('div'); t.className = 'stage-tick-v'; t.style.top = `${i}px`; t.innerText = i; rv.appendChild(t);
+    }
+
+    // Aggiungi guide cliccando sui righelli
+    rh.addEventListener('mousedown', (e) => {
+        const rect = document.getElementById('stage').getBoundingClientRect();
+        const scaleX = 1920 / rect.width;
+        let x = (e.clientX - rect.left) * scaleX;
+        customGuides.v.push(x); renderCustomGuides(); saveProject();
+    });
+    rv.addEventListener('mousedown', (e) => {
+        const rect = document.getElementById('stage').getBoundingClientRect();
+        const scaleY = 1080 / rect.height;
+        let y = (e.clientY - rect.top) * scaleY;
+        customGuides.h.push(y); renderCustomGuides(); saveProject();
+    });
+}
+initRulers();
+
+function renderCustomGuides() {
+    const container = document.getElementById('custom-guides-container');
+    container.innerHTML = '';
+    
+    customGuides.h.forEach((pos, i) => {
+        let g = document.createElement('div'); g.className = 'custom-guide-h';
+        container.appendChild(g);
+        gsap.set(g, { y: pos });
+        Draggable.create(g, { type: 'y', onDragEnd: function() { customGuides.h[i] = this.y; saveProject(); } });
+    });
+
+    customGuides.v.forEach((pos, i) => {
+        let g = document.createElement('div'); g.className = 'custom-guide-v';
+        container.appendChild(g);
+        gsap.set(g, { x: pos });
+        Draggable.create(g, { type: 'x', onDragEnd: function() { customGuides.v[i] = this.x; saveProject(); } });
+    });
+}
+
+document.getElementById('btn-generate-grid').addEventListener('click', () => {
+    const cols = parseInt(document.getElementById('grid-cols').value) || 1;
+    const rows = parseInt(document.getElementById('grid-rows').value) || 1;
+    customGuides = { h: [], v: [] };
+    for(let i=1; i<cols; i++) customGuides.v.push((1920 / cols) * i);
+    for(let i=1; i<rows; i++) customGuides.h.push((1080 / rows) * i);
+    renderCustomGuides(); saveProject();
+});
+
+document.getElementById('btn-clear-guides').addEventListener('click', () => {
+    customGuides = { h: [], v: [] }; renderCustomGuides(); saveProject();
+});
+
+document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
+    const guides1 = document.getElementById('guides-container');
+    const guides2 = document.getElementById('custom-guides-container');
+    if(guides1.style.display === 'none') { 
+        guides1.style.display = 'block'; guides2.style.display = 'block';
+        e.target.style.background = '#32D74B'; e.target.style.color = '#000'; e.target.innerText = "⌖ GUIDE ON";
+    } else { 
+        guides1.style.display = 'none'; guides2.style.display = 'none';
+        e.target.style.background = '#444'; e.target.style.color = 'white'; e.target.innerText = "⌖ GUIDE OFF";
+    }
+});
+
+
+// === UI TESTO ===
 const fontSlider = document.getElementById('font-size-slider');
 const fontNum = document.getElementById('font-size-num');
 fontSlider.addEventListener('input', (e) => { fontNum.value = e.target.value; updateLiveText(); });
@@ -65,23 +142,14 @@ function updateLiveText() {
     }
 }
 
-document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
-    const guides = document.getElementById('guides-container');
-    if(guides.style.display === 'none') { guides.style.display = 'block'; e.target.style.background = '#32D74B'; e.target.style.color = '#000'; }
-    else { guides.style.display = 'none'; e.target.style.background = '#444'; e.target.style.color = 'white'; }
-});
-
-// Deseleziona cliccando sul vuoto
+// Deseleziona nel vuoto
 document.getElementById('stage-wrapper').addEventListener('mousedown', (e) => {
     if (e.target.id === 'stage' || e.target.id === 'bg-container' || e.target.id === 'stage-wrapper') {
-        if (editingClipIndex > -1) {
-            document.getElementById('btn-update-text').click();
-            exitEditMode();
-        }
+        if (editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); }
     }
 });
 
-// Clic Diretto sullo Schermo per Selezionare
+// Delega Clic sul Testo
 document.getElementById('text-container').addEventListener('mousedown', (e) => {
     if(e.target.classList.contains('resize-handle')) return; 
 
@@ -90,13 +158,11 @@ document.getElementById('text-container').addEventListener('mousedown', (e) => {
         const index = parseInt(clipNode.getAttribute('data-index'));
         if (!isNaN(index) && editingClipIndex !== index) {
             e.stopPropagation();
+            if(editingClipIndex > -1) document.getElementById('btn-update-text').click(); // Salva il vecchio
             loadClipIntoEditor(index);
         }
     } else if (!clipNode) {
-        if (editingClipIndex > -1) {
-            document.getElementById('btn-update-text').click();
-            exitEditMode();
-        }
+        if (editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); }
     }
 });
 
@@ -105,14 +171,11 @@ document.getElementById('btn-copy-clip').addEventListener('click', () => {
     if (selectedGlobalIndex > -1 && selectedTrackType) {
         let sourceArr = selectedTrackType === 'text' ? trackText : (selectedTrackType === 'bg' ? trackBg : trackAudio);
         clipboard = JSON.parse(JSON.stringify(sourceArr[selectedGlobalIndex]));
-    } else {
-        alert("SELEZIONA UNA CLIP NELLA TIMELINE PRIMA DI COPIARE.");
-    }
+    } else { alert("SELEZIONA UNA CLIP NELLA TIMELINE PRIMA DI COPIARE."); }
 });
 
 document.getElementById('btn-paste-clip').addEventListener('click', () => {
     if (!clipboard) { alert("NESSUNA CLIP DA INCOLLARE."); return; }
-    
     let newClip = JSON.parse(JSON.stringify(clipboard));
     let phTime = masterTimeline ? masterTimeline.time() : 0;
     
@@ -165,10 +228,6 @@ document.getElementById('btn-add-audio').addEventListener('click', () => { const
 document.getElementById('btn-clear-timeline').addEventListener('click', () => { trackText = []; trackBg = []; trackAudio = []; document.getElementById('master-audio').src = ""; exitEditMode(); });
 
 function loadClipIntoEditor(index) {
-    if (editingClipIndex !== -1 && editingClipIndex !== index) {
-        document.getElementById('btn-update-text').click();
-    }
-
     editingClipIndex = index; 
     selectedTrackType = 'text'; 
     selectedGlobalIndex = index;
@@ -192,7 +251,7 @@ function loadClipIntoEditor(index) {
     renderTimelineUI(); 
     rebuildMasterTimelineSilently();
     
-    // Sicurezza per la visibilità: andiamo avanti di 0.1s rispetto all'inizio per evitare l'opacità zero
+    // Ferma al centro della transizione per sicurezza visiva
     if(masterTimeline) masterTimeline.time(clip.start + 0.1);
 }
 
@@ -207,7 +266,7 @@ function exitEditMode() {
 document.getElementById('btn-cancel-edit').addEventListener('click', exitEditMode);
 document.getElementById('zoom-slider').addEventListener('input', (e) => { pixelsPerSecond = parseInt(e.target.value); renderTimelineUI(); updatePlayheadVisuals(); });
 
-// === MOTORE MAGNETICO PER TIMELINE ===
+// === MOTORE MAGNETICO (SNAPPING) ===
 function snapToClosest(time, trackType, skipIndex = -1) {
     const SNAP_THRESHOLD = 0.3; 
     let closest = time;
@@ -337,10 +396,7 @@ function renderTimelineUI() {
         const updateScrub = (ev) => {
             const rect = ruler.getBoundingClientRect(); let x = ev.clientX - rect.left;
             if(x < 0) x = 0; if(x > MASTER_DURATION * pixelsPerSecond) x = MASTER_DURATION * pixelsPerSecond;
-            
-            let time = x / pixelsPerSecond;
-            time = snapToClosest(time); 
-            
+            let time = snapToClosest(x / pixelsPerSecond); 
             if(masterTimeline) masterTimeline.time(time);
         };
         updateScrub(e); 
@@ -425,24 +481,31 @@ function rebuildMasterTimelineSilently() {
         if (index === editingClipIndex) {
             txtNode.classList.add('is-editing');
             
-            // IL TESTO ORA PUÒ USCIRE DAI MARGINI SENZA LIMITI (bounds RIMOSSI)
+            // AGGIUNGI PUNTI CENTRALI (MIDPOINTS) COME SU AFTER EFFECTS
+            ['t','b','l','r'].forEach(pos => {
+                let m = document.createElement('div');
+                m.className = `handle-mid handle-mid-${pos}`;
+                txtNode.appendChild(m);
+            });
+            
+            // DRAG SBLOCCATO
             Draggable.create(txtNode, {
                 type: "x,y",
                 onDragEnd: function() { clip.posX = this.x; clip.posY = this.y; }
             });
 
+            // MANIGLIA DI RIDIMENSIONAMENTO
             const handle = document.createElement('div');
             handle.className = 'resize-handle';
             txtNode.appendChild(handle);
 
-            // LOGICA DI RESIZE VETTORIALE TIPO AFTER EFFECTS
             handle.addEventListener('mousedown', (e) => {
                 e.stopPropagation(); 
                 let startX = e.clientX;
                 let startSize = parseInt(clip.fontSize) || 120;
                 
                 const onMove = (ev) => {
-                    let diff = ev.clientX - startX; // Tiri verso l'esterno per ingrandire
+                    let diff = ev.clientX - startX; 
                     let newSize = Math.max(10, startSize + diff);
                     clip.fontSize = newSize;
                     txtNode.style.fontSize = `${newSize}px`;
@@ -454,7 +517,6 @@ function rebuildMasterTimelineSilently() {
             });
         }
 
-        // Usa autoAlpha per nascondere FISICAMENTE la clip quando non deve essere vista
         masterTimeline.set(layer, { autoAlpha: 1 }, clip.start);
         
         const effectDur = 0.5;
@@ -471,6 +533,7 @@ function rebuildMasterTimelineSilently() {
 
     masterTimeline.set({}, {}, MASTER_DURATION);
     masterTimeline.time(savedTime);
+    renderCustomGuides(); // Assicura che le guide rimangano sopra
 }
 
 function updatePlayheadVisuals() {

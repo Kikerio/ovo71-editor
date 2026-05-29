@@ -35,6 +35,25 @@
         </div>
 
         <hr class="section-divider">
+
+        <div class="control-group">
+            <h2 class="section-title" style="color: #32D74B;">GUIDE E GRIGLIE</h2>
+            <div class="row">
+                <div>
+                    <label>COLONNE</label>
+                    <input type="number" id="grid-cols" value="3" min="1">
+                </div>
+                <div>
+                    <label>RIGHE</label>
+                    <input type="number" id="grid-rows" value="3" min="1">
+                </div>
+            </div>
+            <button id="btn-generate-grid" class="btn-update">⌗ GENERA GRIGLIA</button>
+            <button id="btn-clear-guides" class="btn-cancel" style="display:flex;">✕ SVUOTA GUIDE</button>
+            <label style="font-size: 9px; text-align:center;">CLICCA SUI RIGHELLI NELLO STAGE PER AGGIUNGERE LINEE MANUALI</label>
+        </div>
+
+        <hr class="section-divider">
         
         <div class="control-group">
             <h2 class="section-title" style="color: #0A84FF;">TRACCIA 1: TESTO ANIMATO</h2>
@@ -140,11 +159,16 @@
             <div id="stage">
                 <canvas id="export-canvas" width="1920" height="1080" style="display:none;"></canvas>
                 
-                <div id="guides-container" style="display:none; pointer-events: none;">
+                <div id="stage-ruler-h"></div>
+                <div id="stage-ruler-v"></div>
+                
+                <div id="guides-container">
                     <div class="guide-v"></div>
                     <div class="guide-h"></div>
                     <div class="guide-margin"></div>
                 </div>
+
+                <div id="custom-guides-container"></div>
 
                 <div id="bg-container"></div>
                 <div id="text-container"></div>
@@ -155,7 +179,7 @@
             <div id="timeline-toolbar">
                 <div class="toolbar-group">
                     <button id="btn-play-pause" class="btn-play">▶ PLAY</button>
-                    <button id="btn-toggle-guides" style="background: #444; color: white;">⌖ GUIDE</button>
+                    <button id="btn-toggle-guides" style="background: #32D74B; color: #000;">⌖ GUIDE ON</button>
                     <button id="btn-copy-clip" style="background: #3a3a3c; color: white;">⎘ COPIA</button>
                     <button id="btn-paste-clip" style="background: #3a3a3c; color: white;">📋 INCOLLA</button>
                     <label style="margin-left:10px;">ZOOM:</label>
