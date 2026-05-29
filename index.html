@@ -8,9 +8,11 @@
     <script src="coi-serviceworker.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
     <script src="https://unpkg.com/split-type"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"></script>
-<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,8 +27,7 @@
 
         <div class="control-group">
             <h2 class="section-title" style="color: #FFC107;">I MIEI PROGETTI</h2>
-            <div class="preset-grid" id="projects-list">
-                </div>
+            <div class="preset-grid" id="projects-list"></div>
             <div class="row" style="margin-top: 8px;">
                 <input type="text" id="project-name" placeholder="NOME PROGETTO...">
                 <button id="btn-save-draft" class="btn-add">SALVA BOZZA</button>
@@ -46,8 +47,8 @@
                 <div>
                     <label>DIMENSIONE FONT</label>
                     <div style="display:flex; gap: 8px;">
-                        <input type="range" id="font-size-slider" min="10" max="400" value="120" style="flex:2;">
-                        <input type="number" id="font-size-num" value="120" min="10" max="400" style="flex:1;">
+                        <input type="range" id="font-size-slider" min="10" max="600" value="120" style="flex:2;">
+                        <input type="number" id="font-size-num" value="120" min="10" max="600" style="flex:1;">
                     </div>
                 </div>
             </div>
@@ -85,20 +86,26 @@
             </div>
 
             <label style="margin-top:4px;">ANIMAZIONE ENTRATA</label>
-            <div class="preset-grid" id="grid-in">
+            <div class="preset-grid anim-grid" id="grid-in">
                 <button class="preset-btn active" data-anim="fade">FADE</button>
-                <button class="preset-btn" data-anim="blur">BLUR IN</button>
-                <button class="preset-btn" data-anim="cinematicZoom">CINE ZOOM</button>
-                <button class="preset-btn" data-anim="drop">DROP</button>
-                <button class="preset-btn" data-anim="slideRight">SLIDE R</button>
+                <button class="preset-btn" data-anim="blur">BLUR</button>
+                <button class="preset-btn" data-anim="cinematicZoom">ZOOM IN</button>
                 <button class="preset-btn" data-anim="typewriter">TYPE</button>
+                <button class="preset-btn" data-anim="slideLeft">DA SX</button>
+                <button class="preset-btn" data-anim="slideRight">DA DX</button>
+                <button class="preset-btn" data-anim="slideUp">DA GIÙ</button>
+                <button class="preset-btn" data-anim="slideDown">DA SU</button>
             </div>
 
             <label>ANIMAZIONE USCITA</label>
-            <div class="preset-grid" id="grid-out">
+            <div class="preset-grid anim-grid" id="grid-out">
                 <button class="preset-btn active" data-anim="none">NESSUNA</button>
                 <button class="preset-btn" data-anim="fade">FADE OUT</button>
                 <button class="preset-btn" data-anim="zoomOut">ZOOM OUT</button>
+                <button class="preset-btn" data-anim="slideLeftOut">VERSO SX</button>
+                <button class="preset-btn" data-anim="slideRightOut">VERSO DX</button>
+                <button class="preset-btn" data-anim="slideUpOut">VERSO SU</button>
+                <button class="preset-btn" data-anim="slideDownOut">VERSO GIÙ</button>
             </div>
 
             <button id="btn-add-text" class="btn-add">+ INSERISCI CLIP TESTO</button>
@@ -115,6 +122,7 @@
                 <button class="color-btn" style="background: var(--ovo-black);" data-color="#121212" title="Nero"></button>
                 <button class="color-btn" style="background: var(--ovo-white);" data-color="#FFFFFF" title="Bianco"></button>
             </div>
+            <label style="font-size: 9px;">DOPPIO CLICK SULLA CLIP IN TIMELINE PER COLORE CUSTOM</label>
         </div>
 
         <hr class="section-divider">
@@ -132,6 +140,12 @@
             <div id="stage">
                 <canvas id="export-canvas" width="1920" height="1080" style="display:none;"></canvas>
                 
+                <div id="guides-container" style="display:none; pointer-events: none;">
+                    <div class="guide-v"></div>
+                    <div class="guide-h"></div>
+                    <div class="guide-margin"></div>
+                </div>
+
                 <div id="bg-container"></div>
                 <div id="text-container"></div>
             </div>
@@ -141,11 +155,13 @@
             <div id="timeline-toolbar">
                 <div class="toolbar-group">
                     <button id="btn-play-pause" class="btn-play">▶ PLAY</button>
+                    <button id="btn-toggle-guides" style="background: #444; color: white;">⌖ GUIDE</button>
                     <label style="margin-left:10px;">ZOOM:</label>
                     <input type="range" id="zoom-slider" min="20" max="150" value="50" style="width: 100px;">
                 </div>
                 <div class="toolbar-group">
-                    <label>DURATA MASTER (S):</label>
+                    <label>CMD+C / CMD+V PER COPIARE/INCOLLARE</label>
+                    <label style="margin-left:15px;">DURATA MASTER (S):</label>
                     <input type="number" id="master-duration" value="10.0" min="2" max="60" style="width: 60px;">
                     <button id="btn-clear-timeline" style="background: transparent; border:1px solid #666; color: #ccc;">SVUOTA</button>
                     <button id="btn-export-mp4" class="btn-export">⏺ ESPORTA MP4</button>
