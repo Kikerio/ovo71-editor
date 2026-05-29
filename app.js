@@ -26,13 +26,13 @@ function resizeStage() {
     const stage = document.getElementById('stage');
     const wWidth = wrapper.clientWidth - 80; 
     const wHeight = wrapper.clientHeight - 80;
-    stageScale = Math.min(wWidth / 3840, wHeight / 2160); // Math 4K
+    stageScale = Math.min(wWidth / 3840, wHeight / 2160); 
     stage.style.transform = `scale(${stageScale})`;
 }
 window.addEventListener('resize', resizeStage);
 resizeStage(); 
 
-// === GESTIONE PROGETTI ===
+// === GESTIONE PROGETTI E BOZZE ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
     if (!projectName) { alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE."); return; }
@@ -69,7 +69,7 @@ function loadProject(name) {
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
 loadProjectsList();
 
-// === SISTEMA GRIGLIE (3840x2160) ===
+// === SISTEMA GRIGLIE ===
 function showGuides() {
     document.getElementById('guides-container').style.display = 'block';
     document.getElementById('custom-guides-container').style.display = 'block';
@@ -82,7 +82,7 @@ function initRulers() {
     const rv = document.getElementById('stage-ruler-v');
     rh.innerHTML = ''; rv.innerHTML = '';
     
-    for(let i=0; i<=3840; i+=200) { // Step aumentato per leggibilità 4K
+    for(let i=0; i<=3840; i+=200) {
         let pct = (i / 3840) * 100;
         let t = document.createElement('div'); t.className = 'stage-tick-h'; t.style.left = `${pct}%`; t.innerText = i; rh.appendChild(t);
     }
@@ -160,7 +160,7 @@ document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
 
 initRulers();
 
-// === UI TESTO E DRAG ===
+// === UI TESTO E SELEZIONE SULLO SCHERMO ===
 const fontSlider = document.getElementById('font-size-slider');
 const fontNum = document.getElementById('font-size-num');
 fontSlider.addEventListener('input', (e) => { fontNum.value = e.target.value; updateLiveText(); });
@@ -229,6 +229,10 @@ document.getElementById('master-duration').addEventListener('change', (e) => { M
 
 document.getElementById('font-upload').addEventListener('change', async (e) => { const file = e.target.files[0]; if (!file) return; try { const fontUrl = URL.createObjectURL(file); currentFontFamily = 'OVO71_CustomFont'; const customFont = new FontFace(currentFontFamily, `url(${fontUrl})`); await customFont.load(); document.fonts.add(customFont); } catch (err) { alert('ERRORE CARICAMENTO FONT.'); } });
 
+
+// === LOGICA BOTTONI AGGIUNGI / SALVA / AGGIORNA ===
+
+// Pulsante "AGGIORNA TESTO" (Anteprima live senza uscire dall'edit)
 document.getElementById('btn-update-text').addEventListener('click', () => {
     if (editingClipIndex > -1) {
         trackText[editingClipIndex].text = document.getElementById('text-input').value.replace(/\n/g, '<br>');
@@ -242,11 +246,21 @@ document.getElementById('btn-update-text').addEventListener('click', () => {
     } else { alert("TESTO PRONTO! CLICCA '+ INSERISCI CLIP TESTO'."); }
 });
 
+// Pulsante specifico "SALVA E CHIUDI MODIFICA"
+document.getElementById('btn-save-edit').addEventListener('click', () => {
+    if (editingClipIndex > -1) {
+        document.getElementById('btn-update-text').click(); // Fissa i dati
+        exitEditMode(); // Torna alla creazione
+    }
+});
+
+// Preset Buttons Grid
 const setupGrid = (gridId, setterCallback) => { document.querySelectorAll(`${gridId} .preset-btn`).forEach(btn => { btn.addEventListener('click', (e) => { document.querySelectorAll(`${gridId} .preset-btn`).forEach(b => b.classList.remove('active')); e.target.classList.add('active'); setterCallback(e.target.getAttribute('data-anim')); }); }); };
 setupGrid('#grid-in', val => selectedAnimIn = val); setupGrid('#grid-out', val => selectedAnimOut = val);
 
+// Pulsante "+ INSERISCI CLIP TESTO"
 document.getElementById('btn-add-text').addEventListener('click', () => {
-    if(editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); return; }
+    if(editingClipIndex > -1) { return; } // Non fa nulla se in edit mode, c'è il tasto Salva ora.
     let startPos = 0; if(trackText.length > 0) { const last = trackText[trackText.length - 1]; startPos = last.start + last.duration; }
     const duration = 3.0; if (startPos + duration > MASTER_DURATION) startPos = Math.max(0, MASTER_DURATION - duration);
     trackText.push({ text: document.getElementById('text-input').value.replace(/\n/g, '<br>'), font: currentFontFamily, fontSize: fontNum.value, color: document.getElementById('color-text-preset').value, align: document.getElementById('horiz-align').value, target: document.getElementById('anim-target').value, duration: duration, animIn: selectedAnimIn, animOut: selectedAnimOut, start: startPos, posX: 0, posY: 0 });
@@ -265,7 +279,7 @@ function loadClipIntoEditor(index) {
     
     document.getElementById('sidebar-title').textContent = "MODIFICA CLIP";
     document.getElementById('text-input').value = clip.text.replace(/<br>/g, '\n');
-    fontSlider.value = clip.fontSize || 240; fontNum.value = clip.fontSize || 240; // Default 4K
+    fontSlider.value = clip.fontSize || 240; fontNum.value = clip.fontSize || 240;
     document.getElementById('color-text-preset').value = clip.color;
     document.getElementById('horiz-align').value = clip.align; document.getElementById('anim-target').value = clip.target;
     
@@ -273,7 +287,9 @@ function loadClipIntoEditor(index) {
     document.querySelectorAll('#grid-in .preset-btn').forEach(b => { b.classList.remove('active'); if(b.getAttribute('data-anim')===selectedAnimIn) b.classList.add('active'); });
     document.querySelectorAll('#grid-out .preset-btn').forEach(b => { b.classList.remove('active'); if(b.getAttribute('data-anim')===selectedAnimOut) b.classList.add('active'); });
 
-    document.getElementById('btn-add-text').innerHTML = "✓ SALVA E CHIUDI MODIFICA";
+    // CAMBIO BOTTONI UI
+    document.getElementById('btn-add-text').style.display = "none";
+    document.getElementById('btn-save-edit').style.display = "flex";
     document.getElementById('btn-cancel-edit').style.display = "flex";
     
     if(isPlaying) document.getElementById('btn-play-pause').click();
@@ -287,8 +303,12 @@ function loadClipIntoEditor(index) {
 function exitEditMode() {
     editingClipIndex = -1; selectedTrackType = null; selectedGlobalIndex = -1;
     document.getElementById('sidebar-title').textContent = "MOTION EDITOR";
-    document.getElementById('btn-add-text').innerHTML = "+ INSERISCI CLIP TESTO";
+    
+    // RIPRISTINO BOTTONI UI
+    document.getElementById('btn-add-text').style.display = "flex";
+    document.getElementById('btn-save-edit').style.display = "none";
     document.getElementById('btn-cancel-edit').style.display = "none";
+    
     renderTimelineUI(); rebuildMasterTimelineSilently();
 }
 
@@ -386,9 +406,24 @@ function renderTimelineUI() {
             document.addEventListener('mousemove', onMoveR); document.addEventListener('mouseup', onUpR);
         }); block.appendChild(resizerR);
 
+        // DOPPIO CLIC RISOLTO E INFALLIBILE SULLA TIMELINE
+        let lastClickTime = 0;
         block.addEventListener('mousedown', (e) => {
             if(e.target.classList.contains('resizer') || e.target.classList.contains('delete-clip-btn')) return;
             e.preventDefault();
+
+            let now = Date.now();
+            if (now - lastClickTime < 300) { // Se è un doppio clic manuale
+                if(laneId === 'lane-text') {
+                    loadClipIntoEditor(index);
+                } else if (laneId === 'lane-bg') {
+                    const newColor = prompt("INSERISCI UN NUOVO COLORE (es. #FF0000, rgba, ecc.):", clip.color);
+                    if (newColor) { clip.color = newColor; renderTimelineUI(); rebuildMasterTimelineSilently(); }
+                }
+                return;
+            }
+            lastClickTime = now;
+
             selectedTrackType = trackType; selectedGlobalIndex = index; renderTimelineUI(); 
             
             let startX = e.clientX; let initialStart = clip.start;
@@ -405,14 +440,6 @@ function renderTimelineUI() {
             document.addEventListener('mousemove', onMoveDrag); document.addEventListener('mouseup', onUpDrag);
         });
 
-        if(laneId === 'lane-text') {
-            block.addEventListener('dblclick', () => loadClipIntoEditor(index));
-        } else if (laneId === 'lane-bg') {
-            block.addEventListener('dblclick', () => {
-                const newColor = prompt("INSERISCI UN NUOVO COLORE (es. #FF0000, rgba, ecc.):", clip.color);
-                if (newColor) { clip.color = newColor; renderTimelineUI(); rebuildMasterTimelineSilently(); }
-            });
-        }
         lane.appendChild(block);
     };
 
@@ -495,7 +522,7 @@ function rebuildMasterTimelineSilently() {
         txtNode.className = 'clip-text';
         txtNode.setAttribute('data-index', index); 
         txtNode.style.fontFamily = clip.font;
-        txtNode.style.fontSize = `${clip.fontSize || 240}px`; // Default 4K
+        txtNode.style.fontSize = `${clip.fontSize || 240}px`; 
         txtNode.style.color = clip.color;
         txtNode.innerHTML = clip.text;
 
@@ -531,7 +558,7 @@ function rebuildMasterTimelineSilently() {
                 let startSize = parseInt(clip.fontSize) || 240;
                 
                 const onMove = (ev) => {
-                    let diff = (ev.clientX - startX) / stageScale; // SCALATURA 4K CORRETTA 
+                    let diff = (ev.clientX - startX) / stageScale; 
                     let newSize = Math.max(10, startSize + diff);
                     clip.fontSize = newSize;
                     txtNode.style.fontSize = `${newSize}px`;
