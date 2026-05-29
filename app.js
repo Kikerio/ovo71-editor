@@ -14,98 +14,100 @@ let MASTER_DURATION = 10.0;
 let editingClipIndex = -1;
 let currentProjectName = "";
 
-// === GESTIONE PROGETTI (LOCALSTORAGE) ===
+let selectedTrackType = null;
+let selectedGlobalIndex = -1;
+let clipboard = null;
+
+// === GESTIONE PROGETTI ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
-    if (!projectName) {
-        alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE.");
-        return;
-    }
-    
-    const projectData = {
-        name: projectName,
-        duration: MASTER_DURATION,
-        font: currentFontFamily,
-        tracks: { text: trackText, bg: trackBg, audio: trackAudio }
-    };
-    
+    if (!projectName) { alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE."); return; }
+    const projectData = { name: projectName, duration: MASTER_DURATION, font: currentFontFamily, tracks: { text: trackText, bg: trackBg, audio: trackAudio } };
     let projects = JSON.parse(localStorage.getItem('ovo71_projects')) || {};
     projects[projectName] = projectData;
     localStorage.setItem('ovo71_projects', JSON.stringify(projects));
-    
-    currentProjectName = projectName;
-    alert(`PROGETTO "${projectName}" SALVATO CON SUCCESSO!`);
-    loadProjectsList();
+    currentProjectName = projectName; alert(`PROGETTO "${projectName}" SALVATO!`); loadProjectsList();
 }
 
 function loadProjectsList() {
-    const container = document.getElementById('projects-list');
-    container.innerHTML = '';
+    const container = document.getElementById('projects-list'); container.innerHTML = '';
     let projects = JSON.parse(localStorage.getItem('ovo71_projects')) || {};
-    
     for (const key in projects) {
-        const btn = document.createElement('button');
-        btn.className = 'project-tag';
-        btn.innerText = key;
-        btn.onclick = () => loadProject(key);
-        container.appendChild(btn);
+        const btn = document.createElement('button'); btn.className = 'project-tag'; btn.innerText = key;
+        btn.onclick = () => loadProject(key); container.appendChild(btn);
     }
 }
 
 function loadProject(name) {
     let projects = JSON.parse(localStorage.getItem('ovo71_projects')) || {};
     if (projects[name]) {
-        const p = projects[name];
-        currentProjectName = p.name;
-        document.getElementById('project-name').value = p.name;
-        MASTER_DURATION = p.duration;
-        document.getElementById('master-duration').value = p.duration;
-        currentFontFamily = p.font;
-        trackText = p.tracks.text || [];
-        trackBg = p.tracks.bg || [];
-        trackAudio = p.tracks.audio || [];
-        
-        renderTimelineUI();
-        rebuildMasterTimelineSilently();
+        const p = projects[name]; currentProjectName = p.name; document.getElementById('project-name').value = p.name;
+        MASTER_DURATION = p.duration; document.getElementById('master-duration').value = p.duration;
+        currentFontFamily = p.font; trackText = p.tracks.text || []; trackBg = p.tracks.bg || []; trackAudio = p.tracks.audio || [];
+        renderTimelineUI(); rebuildMasterTimelineSilently();
     }
 }
 
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
-// Carica la lista all'avvio
 loadProjectsList();
 
-// === GESTIONE UI E TIMELINE ===
+// === UI, GUIDE E CLIC SULLO SFONDO ===
 const fontSlider = document.getElementById('font-size-slider');
 const fontNum = document.getElementById('font-size-num');
-
 fontSlider.addEventListener('input', (e) => fontNum.value = e.target.value);
 fontNum.addEventListener('input', (e) => fontSlider.value = e.target.value);
 
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        const activeElement = document.activeElement.tagName;
-        if (activeElement !== 'INPUT' && activeElement !== 'TEXTAREA') {
-            e.preventDefault();
-            document.getElementById('btn-play-pause').click();
+document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
+    const guides = document.getElementById('guides-container');
+    if(guides.style.display === 'none') { guides.style.display = 'block'; e.target.style.background = '#32D74B'; e.target.style.color = '#000'; }
+    else { guides.style.display = 'none'; e.target.style.background = '#444'; e.target.style.color = 'white'; }
+});
+
+// Deseleziona cliccando sul vuoto (Come su Adobe)
+document.getElementById('stage-wrapper').addEventListener('mousedown', (e) => {
+    if (e.target.id === 'stage' || e.target.id === 'bg-container' || e.target.id === 'stage-wrapper') {
+        if (editingClipIndex > -1) {
+            document.getElementById('btn-update-text').click();
+            exitEditMode();
         }
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    const activeElement = document.activeElement.tagName;
+    if (activeElement === 'INPUT' || activeElement === 'TEXTAREA') return;
+
+    if (e.code === 'Space') { e.preventDefault(); document.getElementById('btn-play-pause').click(); }
+    
+    if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        if (selectedGlobalIndex > -1) {
+            let sourceArr = selectedTrackType === 'text' ? trackText : trackBg;
+            clipboard = JSON.parse(JSON.stringify(sourceArr[selectedGlobalIndex]));
+        }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
+        let newClip = JSON.parse(JSON.stringify(clipboard));
+        let phTime = masterTimeline ? masterTimeline.time() : 0;
+        newClip.start = phTime; 
+        if (newClip.start + newClip.duration > MASTER_DURATION) newClip.start = Math.max(0, MASTER_DURATION - newClip.duration);
+        
+        if (clipboard.text !== undefined) trackText.push(newClip);
+        else trackBg.push(newClip);
+        
+        renderTimelineUI(); rebuildMasterTimelineSilently();
     }
 });
 
 document.getElementById('master-duration').addEventListener('change', (e) => {
     MASTER_DURATION = parseFloat(e.target.value) || 10;
-    renderTimelineUI();
-    rebuildMasterTimelineSilently();
+    renderTimelineUI(); rebuildMasterTimelineSilently();
 });
 
 document.getElementById('font-upload').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     try {
-        const fontUrl = URL.createObjectURL(file);
-        currentFontFamily = 'OVO71_CustomFont';
-        const customFont = new FontFace(currentFontFamily, `url(${fontUrl})`);
-        await customFont.load();
-        document.fonts.add(customFont);
+        const fontUrl = URL.createObjectURL(file); currentFontFamily = 'OVO71_CustomFont';
+        const customFont = new FontFace(currentFontFamily, `url(${fontUrl})`); await customFont.load(); document.fonts.add(customFont);
     } catch (err) { alert('ERRORE CARICAMENTO FONT.'); }
 });
 
@@ -118,19 +120,15 @@ document.getElementById('btn-update-text').addEventListener('click', () => {
         trackText[editingClipIndex].target = document.getElementById('anim-target').value;
         trackText[editingClipIndex].animIn = selectedAnimIn;
         trackText[editingClipIndex].animOut = selectedAnimOut;
-        renderTimelineUI();
-        rebuildMasterTimelineSilently();
-    } else {
-        alert("TESTO E PARAMETRI PRONTI! CLICCA '+ INSERISCI CLIP TESTO' PER AGGIUNGERLA.");
-    }
+        renderTimelineUI(); rebuildMasterTimelineSilently();
+    } else { alert("TESTO E PARAMETRI PRONTI! CLICCA '+ INSERISCI CLIP TESTO'."); }
 });
 
 const setupGrid = (gridId, setterCallback) => {
     document.querySelectorAll(`${gridId} .preset-btn`).forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll(`${gridId} .preset-btn`).forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            setterCallback(e.target.getAttribute('data-anim'));
+            e.target.classList.add('active'); setterCallback(e.target.getAttribute('data-anim'));
         });
     });
 };
@@ -138,85 +136,53 @@ setupGrid('#grid-in', val => selectedAnimIn = val);
 setupGrid('#grid-out', val => selectedAnimOut = val);
 
 document.getElementById('btn-add-text').addEventListener('click', () => {
-    if(editingClipIndex > -1) {
-        document.getElementById('btn-update-text').click();
-        exitEditMode();
-        return;
-    }
-
+    if(editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); return; }
     let startPos = 0;
-    if(trackText.length > 0) {
-        const last = trackText[trackText.length - 1];
-        startPos = last.start + last.duration;
-    }
-    const duration = 3.0; 
-    if (startPos + duration > MASTER_DURATION) startPos = Math.max(0, MASTER_DURATION - duration);
+    if(trackText.length > 0) { const last = trackText[trackText.length - 1]; startPos = last.start + last.duration; }
+    const duration = 3.0; if (startPos + duration > MASTER_DURATION) startPos = Math.max(0, MASTER_DURATION - duration);
 
     trackText.push({
         text: document.getElementById('text-input').value.replace(/\n/g, '<br>'),
-        font: currentFontFamily,
-        fontSize: fontNum.value,
-        color: document.getElementById('color-text-preset').value,
-        align: document.getElementById('horiz-align').value,
-        target: document.getElementById('anim-target').value,
-        duration: duration,
-        animIn: selectedAnimIn,
-        animOut: selectedAnimOut,
-        start: startPos
+        font: currentFontFamily, fontSize: fontNum.value, color: document.getElementById('color-text-preset').value,
+        align: document.getElementById('horiz-align').value, target: document.getElementById('anim-target').value,
+        duration: duration, animIn: selectedAnimIn, animOut: selectedAnimOut, start: startPos,
+        posX: 0, posY: 0
     });
-    renderTimelineUI();
-    rebuildMasterTimelineSilently();
+    renderTimelineUI(); rebuildMasterTimelineSilently();
 });
 
 document.querySelectorAll('.color-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        const color = e.target.getAttribute('data-color');
-        let startPos = 0;
-        if(trackBg.length > 0) {
-            const last = trackBg[trackBg.length - 1];
-            startPos = last.start + last.duration;
-        }
+        const color = e.target.getAttribute('data-color'); let startPos = 0;
+        if(trackBg.length > 0) { const last = trackBg[trackBg.length - 1]; startPos = last.start + last.duration; }
         if (startPos + 2.0 > MASTER_DURATION) startPos = Math.max(0, MASTER_DURATION - 2.0);
         trackBg.push({ color: color, duration: 2.0, start: startPos });
-        renderTimelineUI();
-        rebuildMasterTimelineSilently();
+        renderTimelineUI(); rebuildMasterTimelineSilently();
     });
 });
 
 document.getElementById('btn-add-audio').addEventListener('click', () => {
-    const file = document.getElementById('audio-upload').files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const audioEl = document.getElementById('master-audio');
+    const file = document.getElementById('audio-upload').files[0]; if (!file) return;
+    const url = URL.createObjectURL(file); const audioEl = document.getElementById('master-audio');
     audioEl.src = url;
     audioEl.onloadedmetadata = () => {
-        let dur = audioEl.duration;
-        if (dur > MASTER_DURATION) dur = MASTER_DURATION;
-        trackAudio = [{ url: url, duration: dur, start: 0 }];
-        renderTimelineUI();
-        rebuildMasterTimelineSilently();
+        let dur = audioEl.duration; if (dur > MASTER_DURATION) dur = MASTER_DURATION;
+        trackAudio = [{ url: url, duration: dur, start: 0 }]; renderTimelineUI(); rebuildMasterTimelineSilently();
     };
 });
 
 document.getElementById('btn-clear-timeline').addEventListener('click', () => {
-    trackText = []; trackBg = []; trackAudio = [];
-    document.getElementById('master-audio').src = "";
-    exitEditMode();
-    renderTimelineUI();
-    rebuildMasterTimelineSilently();
+    trackText = []; trackBg = []; trackAudio = []; document.getElementById('master-audio').src = "";
+    exitEditMode(); renderTimelineUI(); rebuildMasterTimelineSilently();
 });
 
 function loadClipIntoEditor(index) {
-    editingClipIndex = index;
-    const clip = trackText[index];
-    
+    editingClipIndex = index; const clip = trackText[index];
     document.getElementById('sidebar-title').textContent = "MODIFICA CLIP";
     document.getElementById('text-input').value = clip.text.replace(/<br>/g, '\n');
-    fontSlider.value = clip.fontSize || 120;
-    fontNum.value = clip.fontSize || 120;
+    fontSlider.value = clip.fontSize || 120; fontNum.value = clip.fontSize || 120;
     document.getElementById('color-text-preset').value = clip.color;
-    document.getElementById('horiz-align').value = clip.align;
-    document.getElementById('anim-target').value = clip.target;
+    document.getElementById('horiz-align').value = clip.align; document.getElementById('anim-target').value = clip.target;
     
     selectedAnimIn = clip.animIn; selectedAnimOut = clip.animOut;
     document.querySelectorAll('#grid-in .preset-btn').forEach(b => { b.classList.remove('active'); if(b.getAttribute('data-anim')===selectedAnimIn) b.classList.add('active'); });
@@ -224,7 +190,11 @@ function loadClipIntoEditor(index) {
 
     document.getElementById('btn-add-text').innerHTML = "✓ SALVA E CHIUDI MODIFICA";
     document.getElementById('btn-cancel-edit').style.display = "flex";
-    renderTimelineUI();
+    
+    if(isPlaying) document.getElementById('btn-play-pause').click();
+    masterTimeline.time(clip.start);
+    
+    renderTimelineUI(); rebuildMasterTimelineSilently();
 }
 
 function exitEditMode() {
@@ -232,131 +202,100 @@ function exitEditMode() {
     document.getElementById('sidebar-title').textContent = "MOTION EDITOR";
     document.getElementById('btn-add-text').innerHTML = "+ INSERISCI CLIP TESTO";
     document.getElementById('btn-cancel-edit').style.display = "none";
-    renderTimelineUI();
+    renderTimelineUI(); rebuildMasterTimelineSilently();
 }
 
 document.getElementById('btn-cancel-edit').addEventListener('click', exitEditMode);
-document.getElementById('zoom-slider').addEventListener('input', (e) => {
-    pixelsPerSecond = parseInt(e.target.value);
-    renderTimelineUI();
-    updatePlayheadVisuals();
-});
+document.getElementById('zoom-slider').addEventListener('input', (e) => { pixelsPerSecond = parseInt(e.target.value); renderTimelineUI(); updatePlayheadVisuals(); });
 
 function renderTimelineUI() {
     const ruler = document.getElementById('ruler-container');
     ruler.innerHTML = '<div id="playhead"></div>'; 
-    document.getElementById('lane-text').innerHTML = '';
-    document.getElementById('lane-bg').innerHTML = '';
-    document.getElementById('lane-audio').innerHTML = '';
+    document.getElementById('lane-text').innerHTML = ''; document.getElementById('lane-bg').innerHTML = ''; document.getElementById('lane-audio').innerHTML = '';
 
-    const totalWidth = MASTER_DURATION * pixelsPerSecond;
     for(let i=0; i<=MASTER_DURATION; i++) {
-        const tick = document.createElement('div');
-        tick.className = 'ruler-tick';
-        tick.style.left = `${i * pixelsPerSecond}px`;
-        tick.innerText = `${i}S`;
-        ruler.appendChild(tick);
+        const tick = document.createElement('div'); tick.className = 'ruler-tick';
+        tick.style.left = `${i * pixelsPerSecond}px`; tick.innerText = `${i}S`; ruler.appendChild(tick);
     }
 
-    const createTimelineBlock = (clip, index, array, laneId, classColor, label) => {
+    const createTimelineBlock = (clip, index, array, laneId, classColor, label, trackType) => {
         const lane = document.getElementById(laneId);
         const block = document.createElement('div');
         block.className = `timeline-block ${classColor}`;
         if (laneId === 'lane-text' && index === editingClipIndex) block.classList.add('editing-block');
+        if (trackType === selectedTrackType && index === selectedGlobalIndex) block.classList.add('selected-for-copy');
         
-        block.style.left = `${clip.start * pixelsPerSecond}px`;
-        block.style.width = `${clip.duration * pixelsPerSecond}px`;
+        block.style.left = `${clip.start * pixelsPerSecond}px`; block.style.width = `${clip.duration * pixelsPerSecond}px`;
         
-        const spanContent = document.createElement('span');
-        spanContent.style.pointerEvents = "none";
-        spanContent.innerHTML = label;
-        block.appendChild(spanContent);
-
+        const spanContent = document.createElement('span'); spanContent.style.pointerEvents = "none"; spanContent.innerHTML = label; block.appendChild(spanContent);
         if (laneId === 'lane-bg') block.style.backgroundColor = clip.color;
 
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-clip-btn'; delBtn.innerHTML = '✕';
+        const delBtn = document.createElement('button'); delBtn.className = 'delete-clip-btn'; delBtn.innerHTML = '✕';
         delBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); array.splice(index, 1); renderTimelineUI(); rebuildMasterTimelineSilently(); });
         block.appendChild(delBtn);
 
-        const resizerL = document.createElement('div');
-        resizerL.className = 'resizer resizer-left';
+        const resizerL = document.createElement('div'); resizerL.className = 'resizer resizer-left';
         resizerL.addEventListener('mousedown', (e) => {
-            e.stopPropagation(); e.preventDefault();
-            let startX = e.clientX;
-            let initialStart = clip.start;
-            let initialDuration = clip.duration;
-            
+            e.stopPropagation(); e.preventDefault(); let startX = e.clientX; let initialStart = clip.start; let initialDuration = clip.duration;
             const onMoveL = (ev) => {
-                let diffS = (ev.clientX - startX) / pixelsPerSecond;
-                let newStart = initialStart + diffS;
-                let newDur = initialDuration - diffS;
+                let diffS = (ev.clientX - startX) / pixelsPerSecond; let newStart = initialStart + diffS; let newDur = initialDuration - diffS;
                 if (newStart < 0) { newDur += newStart; newStart = 0; }
                 if (newDur < 0.2) { newStart = initialStart + initialDuration - 0.2; newDur = 0.2; }
                 clip.start = newStart; clip.duration = newDur;
-                block.style.left = `${clip.start * pixelsPerSecond}px`;
-                block.style.width = `${clip.duration * pixelsPerSecond}px`;
+                block.style.left = `${clip.start * pixelsPerSecond}px`; block.style.width = `${clip.duration * pixelsPerSecond}px`;
             };
             const onUpL = () => { document.removeEventListener('mousemove', onMoveL); document.removeEventListener('mouseup', onUpL); rebuildMasterTimelineSilently(); };
             document.addEventListener('mousemove', onMoveL); document.addEventListener('mouseup', onUpL);
-        });
-        block.appendChild(resizerL);
+        }); block.appendChild(resizerL);
 
-        const resizerR = document.createElement('div');
-        resizerR.className = 'resizer resizer-right';
+        const resizerR = document.createElement('div'); resizerR.className = 'resizer resizer-right';
         resizerR.addEventListener('mousedown', (e) => {
-            e.stopPropagation(); e.preventDefault();
-            let startX = e.clientX;
-            let initialDuration = clip.duration;
-            
+            e.stopPropagation(); e.preventDefault(); let startX = e.clientX; let initialDuration = clip.duration;
             const onMoveR = (ev) => {
-                let diffS = (ev.clientX - startX) / pixelsPerSecond;
-                let newDur = initialDuration + diffS;
-                if (newDur < 0.2) newDur = 0.2;
-                if (clip.start + newDur > MASTER_DURATION) newDur = MASTER_DURATION - clip.start;
-                clip.duration = newDur;
-                block.style.width = `${clip.duration * pixelsPerSecond}px`;
+                let diffS = (ev.clientX - startX) / pixelsPerSecond; let newDur = initialDuration + diffS;
+                if (newDur < 0.2) newDur = 0.2; if (clip.start + newDur > MASTER_DURATION) newDur = MASTER_DURATION - clip.start;
+                clip.duration = newDur; block.style.width = `${clip.duration * pixelsPerSecond}px`;
             };
             const onUpR = () => { document.removeEventListener('mousemove', onMoveR); document.removeEventListener('mouseup', onUpR); rebuildMasterTimelineSilently(); };
             document.addEventListener('mousemove', onMoveR); document.addEventListener('mouseup', onUpR);
-        });
-        block.appendChild(resizerR);
+        }); block.appendChild(resizerR);
 
         block.addEventListener('mousedown', (e) => {
             if(e.target.classList.contains('resizer') || e.target.classList.contains('delete-clip-btn')) return;
             e.preventDefault();
-            let startX = e.clientX;
-            let initialStart = clip.start;
-
+            selectedTrackType = trackType; selectedGlobalIndex = index; renderTimelineUI(); 
+            
+            let startX = e.clientX; let initialStart = clip.start;
             const onMoveDrag = (ev) => {
-                let diffS = (ev.clientX - startX) / pixelsPerSecond;
-                let newStart = initialStart + diffS;
-                if (newStart < 0) newStart = 0;
-                if (newStart + clip.duration > MASTER_DURATION) newStart = MASTER_DURATION - clip.duration;
-                clip.start = newStart;
-                block.style.left = `${clip.start * pixelsPerSecond}px`;
+                let diffS = (ev.clientX - startX) / pixelsPerSecond; let newStart = initialStart + diffS;
+                if (newStart < 0) newStart = 0; if (newStart + clip.duration > MASTER_DURATION) newStart = MASTER_DURATION - clip.duration;
+                clip.start = newStart; block.style.left = `${clip.start * pixelsPerSecond}px`;
             };
             const onUpDrag = () => { document.removeEventListener('mousemove', onMoveDrag); document.removeEventListener('mouseup', onUpDrag); rebuildMasterTimelineSilently(); };
             document.addEventListener('mousemove', onMoveDrag); document.addEventListener('mouseup', onUpDrag);
         });
 
-        if(laneId === 'lane-text') block.addEventListener('dblclick', () => loadClipIntoEditor(index));
+        if(laneId === 'lane-text') {
+            block.addEventListener('dblclick', () => loadClipIntoEditor(index));
+        } else if (laneId === 'lane-bg') {
+            block.addEventListener('dblclick', () => {
+                const newColor = prompt("INSERISCI UN NUOVO COLORE (es. #FF0000, rgba, ecc.):", clip.color);
+                if (newColor) { clip.color = newColor; renderTimelineUI(); rebuildMasterTimelineSilently(); }
+            });
+        }
         lane.appendChild(block);
     };
 
-    trackText.forEach((clip, i) => createTimelineBlock(clip, i, trackText, 'lane-text', 'block-text', clip.text.replace(/<br>/g, ' ')));
-    trackBg.forEach((clip, i) => createTimelineBlock(clip, i, trackBg, 'lane-bg', 'block-bg', ''));
-    trackAudio.forEach((clip, i) => createTimelineBlock(clip, i, trackAudio, 'lane-audio', 'block-audio', 'TRACCIA AUDIO'));
+    trackText.forEach((clip, i) => createTimelineBlock(clip, i, trackText, 'lane-text', 'block-text', clip.text.replace(/<br>/g, ' '), 'text'));
+    trackBg.forEach((clip, i) => createTimelineBlock(clip, i, trackBg, 'lane-bg', 'block-bg', '', 'bg'));
+    trackAudio.forEach((clip, i) => createTimelineBlock(clip, i, trackAudio, 'lane-audio', 'block-audio', 'TRACCIA AUDIO', 'audio'));
 
     ruler.addEventListener('mousedown', (e) => {
         if(isPlaying) document.getElementById('btn-play-pause').click();
         const updateScrub = (ev) => {
-            const rect = ruler.getBoundingClientRect();
-            let x = ev.clientX - rect.left;
-            if(x < 0) x = 0;
-            if(x > totalWidth) x = totalWidth;
-            let time = x / pixelsPerSecond;
-            if(masterTimeline) masterTimeline.time(time);
+            const rect = ruler.getBoundingClientRect(); let x = ev.clientX - rect.left;
+            if(x < 0) x = 0; if(x > MASTER_DURATION * pixelsPerSecond) x = MASTER_DURATION * pixelsPerSecond;
+            if(masterTimeline) masterTimeline.time(x / pixelsPerSecond);
         };
         updateScrub(e); 
         const onScrubUp = () => { document.removeEventListener('mousemove', updateScrub); document.removeEventListener('mouseup', onScrubUp); };
@@ -372,14 +311,20 @@ function getAnimConfig(elements, type, isOut, duration) {
             case 'fade': return { from: { opacity: 0 }, to: { opacity: 1, ...base } };
             case 'blur': return { from: { opacity: 0, filter: "blur(12px)" }, to: { opacity: 1, filter: "blur(0px)", ...base } };
             case 'cinematicZoom': return { from: { opacity: 0, scale: 1.15 }, to: { opacity: 1, scale: 1, ...base, ease: "power4.out" } };
-            case 'slideRight': return { from: { opacity: 0, x: -50 }, to: { opacity: 1, x: 0, ...base } };
-            case 'drop': return { from: { opacity: 0, y: -50 }, to: { opacity: 1, y: 0, ...base, ease: "bounce.out" } };
+            case 'slideLeft': return { from: { opacity: 0, x: -100 }, to: { opacity: 1, x: 0, ...base } };
+            case 'slideRight': return { from: { opacity: 0, x: 100 }, to: { opacity: 1, x: 0, ...base } };
+            case 'slideUp': return { from: { opacity: 0, y: 100 }, to: { opacity: 1, y: 0, ...base } };
+            case 'slideDown': return { from: { opacity: 0, y: -100 }, to: { opacity: 1, y: 0, ...base } };
             case 'typewriter': return { from: { opacity: 0 }, to: { opacity: 1, duration: 0.01, ease: "none", stagger: 0.05 } };
         }
     } else {
         switch(type) {
             case 'fade': return { to: { opacity: 0, ...base } };
             case 'zoomOut': return { to: { opacity: 0, scale: 0.9, ...base } };
+            case 'slideLeftOut': return { to: { opacity: 0, x: -100, ...base } };
+            case 'slideRightOut': return { to: { opacity: 0, x: 100, ...base } };
+            case 'slideUpOut': return { to: { opacity: 0, y: -100, ...base } };
+            case 'slideDownOut': return { to: { opacity: 0, y: 100, ...base } };
         }
     }
     return null;
@@ -387,10 +332,7 @@ function getAnimConfig(elements, type, isOut, duration) {
 
 function rebuildMasterTimelineSilently() {
     let savedTime = 0;
-    if(masterTimeline) {
-        savedTime = masterTimeline.time();
-        masterTimeline.kill();
-    }
+    if(masterTimeline) { savedTime = masterTimeline.time(); masterTimeline.kill(); }
 
     const textCont = document.getElementById('text-container');
     const bgCont = document.getElementById('bg-container');
@@ -414,7 +356,7 @@ function rebuildMasterTimelineSilently() {
         masterTimeline.set(bgCont, { backgroundColor: "transparent" }, clip.start + clip.duration);
     });
 
-    trackText.forEach(clip => {
+    trackText.forEach((clip, index) => {
         const layer = document.createElement('div');
         layer.className = `clip-layer ${clip.align} valign-center`;
         
@@ -425,11 +367,63 @@ function rebuildMasterTimelineSilently() {
         txtNode.style.color = clip.color;
         txtNode.innerHTML = clip.text;
 
+        // Clic a schermo per SELEZIONARE la clip
+        txtNode.addEventListener('mousedown', (e) => {
+            if (!isPlaying && editingClipIndex !== index) {
+                e.stopPropagation();
+                loadClipIntoEditor(index);
+            }
+        });
+
+        // Applica coordinate salvate 
+        gsap.set(txtNode, { x: clip.posX || 0, y: clip.posY || 0 });
+
         layer.appendChild(txtNode); textCont.appendChild(layer);
 
         const split = new SplitType(txtNode, { types: clip.target });
         const elements = clip.target === 'chars' ? split.chars : split.words;
         if(elements) elements.forEach(el => el.style.color = clip.color);
+
+        // ABILITA CONTROLLI ADOBE-STYLE QUANDO È IN EDITING
+        if (index === editingClipIndex) {
+            txtNode.classList.add('is-editing');
+            
+            // 1. Spostamento (Drag) sul testo stesso
+            Draggable.create(txtNode, {
+                type: "x,y",
+                bounds: "#stage",
+                onDragEnd: function() {
+                    clip.posX = this.x;
+                    clip.posY = this.y;
+                }
+            });
+
+            // 2. Maniglia per Ridimensionamento Scale
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            txtNode.appendChild(handle);
+
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation(); // Evita di far partire il Drag normale
+                let startY = e.clientY;
+                let startSize = parseInt(clip.fontSize) || 120;
+                
+                const onMove = (ev) => {
+                    let diff = ev.clientY - startY; 
+                    let newSize = Math.max(10, startSize + diff);
+                    clip.fontSize = newSize;
+                    txtNode.style.fontSize = `${newSize}px`;
+                    fontSlider.value = newSize;
+                    fontNum.value = newSize;
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
 
         masterTimeline.set(layer, { opacity: 1 }, clip.start);
 
@@ -470,18 +464,16 @@ function updatePlayheadVisuals() {
 document.getElementById('btn-play-pause').addEventListener('click', () => {
     const btn = document.getElementById('btn-play-pause');
     const audioEl = document.getElementById('master-audio');
-    
     if (!masterTimeline) rebuildMasterTimelineSilently();
+    
+    if(editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); }
 
     if (!isPlaying) {
         if(masterTimeline.progress() === 1) masterTimeline.time(0); 
-        masterTimeline.play();
-        isPlaying = true;
+        masterTimeline.play(); isPlaying = true;
         btn.textContent = "⏸ PAUSA"; btn.style.background = "#FFC107"; btn.style.color = "#000";
     } else {
-        masterTimeline.pause();
-        audioEl.pause();
-        isPlaying = false;
+        masterTimeline.pause(); audioEl.pause(); isPlaying = false;
         btn.textContent = "▶ PLAY"; btn.style.background = "#32D74B"; btn.style.color = "#000";
     }
 });
