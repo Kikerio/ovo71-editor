@@ -19,6 +19,19 @@ let selectedTrackType = null;
 let selectedGlobalIndex = -1;
 let clipboard = null;
 
+// === MOTORE SCALA VIDEO 4K (3840x2160) ===
+let stageScale = 1;
+function resizeStage() {
+    const wrapper = document.getElementById('stage-wrapper');
+    const stage = document.getElementById('stage');
+    const wWidth = wrapper.clientWidth - 80; 
+    const wHeight = wrapper.clientHeight - 80;
+    stageScale = Math.min(wWidth / 3840, wHeight / 2160); // Math 4K
+    stage.style.transform = `scale(${stageScale})`;
+}
+window.addEventListener('resize', resizeStage);
+resizeStage(); 
+
 // === GESTIONE PROGETTI ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
@@ -48,7 +61,7 @@ function loadProject(name) {
         customGuides = p.guides || { h: [], v: [] };
         
         exitEditMode();
-        showGuides(); // Mostra le guide quando si apre il progetto
+        showGuides(); 
         renderCustomGuides();
     }
 }
@@ -56,7 +69,7 @@ function loadProject(name) {
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
 loadProjectsList();
 
-// === SISTEMA GRIGLIE E RIGHELLI MAGICI (Uso delle Percentuali!) ===
+// === SISTEMA GRIGLIE (3840x2160) ===
 function showGuides() {
     document.getElementById('guides-container').style.display = 'block';
     document.getElementById('custom-guides-container').style.display = 'block';
@@ -69,25 +82,25 @@ function initRulers() {
     const rv = document.getElementById('stage-ruler-v');
     rh.innerHTML = ''; rv.innerHTML = '';
     
-    for(let i=0; i<=1920; i+=100) {
-        let pct = (i / 1920) * 100;
+    for(let i=0; i<=3840; i+=200) { // Step aumentato per leggibilità 4K
+        let pct = (i / 3840) * 100;
         let t = document.createElement('div'); t.className = 'stage-tick-h'; t.style.left = `${pct}%`; t.innerText = i; rh.appendChild(t);
     }
-    for(let i=0; i<=1080; i+=100) {
-        let pct = (i / 1080) * 100;
+    for(let i=0; i<=2160; i+=200) {
+        let pct = (i / 2160) * 100;
         let t = document.createElement('div'); t.className = 'stage-tick-v'; t.style.top = `${pct}%`; t.innerText = i; rv.appendChild(t);
     }
 
     rh.addEventListener('mousedown', (e) => {
         const rect = document.getElementById('stage').getBoundingClientRect();
-        let x = e.clientX - rect.left;
-        customGuides.v.push((x / rect.width) * 100); 
+        let x = (e.clientX - rect.left) / stageScale;
+        customGuides.v.push((x / 3840) * 100); 
         showGuides(); renderCustomGuides(); saveProject();
     });
     rv.addEventListener('mousedown', (e) => {
         const rect = document.getElementById('stage').getBoundingClientRect();
-        let y = e.clientY - rect.top;
-        customGuides.h.push((y / rect.height) * 100); 
+        let y = (e.clientY - rect.top) / stageScale;
+        customGuides.h.push((y / 2160) * 100); 
         showGuides(); renderCustomGuides(); saveProject();
     });
 }
@@ -95,31 +108,28 @@ function initRulers() {
 function renderCustomGuides() {
     const container = document.getElementById('custom-guides-container');
     container.innerHTML = '';
-    const rect = document.getElementById('stage').getBoundingClientRect();
-    if (rect.width === 0) return; // Evita errori se nascosto
     
     customGuides.h.forEach((posPct, i) => {
         let g = document.createElement('div'); g.className = 'custom-guide-h';
         container.appendChild(g);
-        let pixelPos = (posPct / 100) * rect.height;
+        let pixelPos = (posPct / 100) * 2160;
         gsap.set(g, { y: pixelPos });
         Draggable.create(g, { type: 'y', bounds: "#stage", onDragEnd: function() { 
-            customGuides.h[i] = (this.y / rect.height) * 100; saveProject(); 
+            customGuides.h[i] = (this.y / 2160) * 100; saveProject(); 
         }});
     });
 
     customGuides.v.forEach((posPct, i) => {
         let g = document.createElement('div'); g.className = 'custom-guide-v';
         container.appendChild(g);
-        let pixelPos = (posPct / 100) * rect.width;
+        let pixelPos = (posPct / 100) * 3840;
         gsap.set(g, { x: pixelPos });
         Draggable.create(g, { type: 'x', bounds: "#stage", onDragEnd: function() { 
-            customGuides.v[i] = (this.x / rect.width) * 100; saveProject(); 
+            customGuides.v[i] = (this.x / 3840) * 100; saveProject(); 
         }});
     });
 }
 
-// Ricalcola le guide quando allarghi o stringi la pagina
 window.addEventListener('resize', renderCustomGuides);
 
 document.getElementById('btn-generate-grid').addEventListener('click', () => {
@@ -148,10 +158,9 @@ document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
     }
 });
 
-// Inizializza i righelli all'avvio
 initRulers();
 
-// === UI TESTO ===
+// === UI TESTO E DRAG ===
 const fontSlider = document.getElementById('font-size-slider');
 const fontNum = document.getElementById('font-size-num');
 fontSlider.addEventListener('input', (e) => { fontNum.value = e.target.value; updateLiveText(); });
@@ -256,7 +265,7 @@ function loadClipIntoEditor(index) {
     
     document.getElementById('sidebar-title').textContent = "MODIFICA CLIP";
     document.getElementById('text-input').value = clip.text.replace(/<br>/g, '\n');
-    fontSlider.value = clip.fontSize || 120; fontNum.value = clip.fontSize || 120;
+    fontSlider.value = clip.fontSize || 240; fontNum.value = clip.fontSize || 240; // Default 4K
     document.getElementById('color-text-preset').value = clip.color;
     document.getElementById('horiz-align').value = clip.align; document.getElementById('anim-target').value = clip.target;
     
@@ -486,7 +495,7 @@ function rebuildMasterTimelineSilently() {
         txtNode.className = 'clip-text';
         txtNode.setAttribute('data-index', index); 
         txtNode.style.fontFamily = clip.font;
-        txtNode.style.fontSize = `${clip.fontSize || 120}px`; 
+        txtNode.style.fontSize = `${clip.fontSize || 240}px`; // Default 4K
         txtNode.style.color = clip.color;
         txtNode.innerHTML = clip.text;
 
@@ -501,7 +510,6 @@ function rebuildMasterTimelineSilently() {
         if (index === editingClipIndex) {
             txtNode.classList.add('is-editing');
             
-            // AGGIUNTA DEI MIDPOINTS ADOBE STYLE
             ['t','b','l','r'].forEach(pos => {
                 let m = document.createElement('div');
                 m.className = `handle-mid handle-mid-${pos}`;
@@ -520,10 +528,10 @@ function rebuildMasterTimelineSilently() {
             handle.addEventListener('mousedown', (e) => {
                 e.stopPropagation(); 
                 let startX = e.clientX;
-                let startSize = parseInt(clip.fontSize) || 120;
+                let startSize = parseInt(clip.fontSize) || 240;
                 
                 const onMove = (ev) => {
-                    let diff = ev.clientX - startX; 
+                    let diff = (ev.clientX - startX) / stageScale; // SCALATURA 4K CORRETTA 
                     let newSize = Math.max(10, startSize + diff);
                     clip.fontSize = newSize;
                     txtNode.style.fontSize = `${newSize}px`;

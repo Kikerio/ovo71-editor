@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OVO71 - Motion Editor Pro</title>
+    <title>OVO71 - Motion Editor Pro (4K UHD)</title>
     
     <script src="coi-serviceworker.js"></script>
     
@@ -37,7 +37,7 @@
         <hr class="section-divider">
 
         <div class="control-group">
-            <h2 class="section-title" style="color: #32D74B;">GUIDE E GRIGLIE</h2>
+            <h2 class="section-title" style="color: #32D74B;">GUIDE E GRIGLIE (3840x2160)</h2>
             <div class="row">
                 <div>
                     <label>COLONNE</label>
@@ -50,7 +50,7 @@
             </div>
             <button id="btn-generate-grid" class="btn-update">⌗ GENERA GRIGLIA</button>
             <button id="btn-clear-guides" class="btn-cancel" style="display:flex;">✕ SVUOTA GUIDE</button>
-            <label style="font-size: 9px; text-align:center;">CLICCA SUI RIGHELLI NELLO STAGE PER AGGIUNGERE LINEE MANUALI</label>
+            <label style="font-size: 9px; text-align:center;">CLICCA SUI RIGHELLI NELLO STAGE PER AGGIUNGERE LINEE</label>
         </div>
 
         <hr class="section-divider">
@@ -66,8 +66,8 @@
                 <div>
                     <label>DIMENSIONE FONT</label>
                     <div style="display:flex; gap: 8px;">
-                        <input type="range" id="font-size-slider" min="10" max="600" value="120" style="flex:2;">
-                        <input type="number" id="font-size-num" value="120" min="10" max="600" style="flex:1;">
+                        <input type="range" id="font-size-slider" min="10" max="1200" value="240" style="flex:2;">
+                        <input type="number" id="font-size-num" value="240" min="10" max="1200" style="flex:1;">
                     </div>
                 </div>
             </div>
@@ -157,10 +157,10 @@
         
         <div id="stage-wrapper">
             <div id="stage">
-                <canvas id="export-canvas" width="1920" height="1080" style="display:none;"></canvas>
+                <canvas id="export-canvas" width="3840" height="2160" style="display:none;"></canvas>
                 
-                <div id="stage-ruler-h"></div>
-                <div id="stage-ruler-v"></div>
+                <div id="bg-container"></div>
+                <div id="text-container"></div>
                 
                 <div id="guides-container">
                     <div class="guide-v"></div>
@@ -170,8 +170,8 @@
 
                 <div id="custom-guides-container"></div>
 
-                <div id="bg-container"></div>
-                <div id="text-container"></div>
+                <div id="stage-ruler-h"></div>
+                <div id="stage-ruler-v"></div>
             </div>
         </div>
         
