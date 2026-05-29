@@ -2,7 +2,7 @@
 let trackText = [];
 let trackBg = [];
 let trackAudio = []; 
-let customGuides = { h: [], v: [] }; // Memoria per le linee guida
+let customGuides = { h: [], v: [] }; 
 
 let masterTimeline = null;
 let isPlaying = false;
@@ -19,7 +19,7 @@ let selectedTrackType = null;
 let selectedGlobalIndex = -1;
 let clipboard = null;
 
-// === GESTIONE PROGETTI E GUIDE ===
+// === GESTIONE PROGETTI ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
     if (!projectName) { alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE."); return; }
@@ -48,6 +48,7 @@ function loadProject(name) {
         customGuides = p.guides || { h: [], v: [] };
         
         exitEditMode();
+        showGuides(); // Mostra le guide quando si apre il progetto
         renderCustomGuides();
     }
 }
@@ -55,60 +56,81 @@ function loadProject(name) {
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
 loadProjectsList();
 
-// === SISTEMA GRIGLIE E RIGHELLI ===
+// === SISTEMA GRIGLIE E RIGHELLI MAGICI (Uso delle Percentuali!) ===
+function showGuides() {
+    document.getElementById('guides-container').style.display = 'block';
+    document.getElementById('custom-guides-container').style.display = 'block';
+    const btn = document.getElementById('btn-toggle-guides');
+    btn.style.background = '#32D74B'; btn.style.color = '#000'; btn.innerText = "⌖ GUIDE ON";
+}
+
 function initRulers() {
     const rh = document.getElementById('stage-ruler-h');
     const rv = document.getElementById('stage-ruler-v');
     rh.innerHTML = ''; rv.innerHTML = '';
+    
     for(let i=0; i<=1920; i+=100) {
-        let t = document.createElement('div'); t.className = 'stage-tick-h'; t.style.left = `${i}px`; t.innerText = i; rh.appendChild(t);
+        let pct = (i / 1920) * 100;
+        let t = document.createElement('div'); t.className = 'stage-tick-h'; t.style.left = `${pct}%`; t.innerText = i; rh.appendChild(t);
     }
     for(let i=0; i<=1080; i+=100) {
-        let t = document.createElement('div'); t.className = 'stage-tick-v'; t.style.top = `${i}px`; t.innerText = i; rv.appendChild(t);
+        let pct = (i / 1080) * 100;
+        let t = document.createElement('div'); t.className = 'stage-tick-v'; t.style.top = `${pct}%`; t.innerText = i; rv.appendChild(t);
     }
 
-    // Aggiungi guide cliccando sui righelli
     rh.addEventListener('mousedown', (e) => {
         const rect = document.getElementById('stage').getBoundingClientRect();
-        const scaleX = 1920 / rect.width;
-        let x = (e.clientX - rect.left) * scaleX;
-        customGuides.v.push(x); renderCustomGuides(); saveProject();
+        let x = e.clientX - rect.left;
+        customGuides.v.push((x / rect.width) * 100); 
+        showGuides(); renderCustomGuides(); saveProject();
     });
     rv.addEventListener('mousedown', (e) => {
         const rect = document.getElementById('stage').getBoundingClientRect();
-        const scaleY = 1080 / rect.height;
-        let y = (e.clientY - rect.top) * scaleY;
-        customGuides.h.push(y); renderCustomGuides(); saveProject();
+        let y = e.clientY - rect.top;
+        customGuides.h.push((y / rect.height) * 100); 
+        showGuides(); renderCustomGuides(); saveProject();
     });
 }
-initRulers();
 
 function renderCustomGuides() {
     const container = document.getElementById('custom-guides-container');
     container.innerHTML = '';
+    const rect = document.getElementById('stage').getBoundingClientRect();
+    if (rect.width === 0) return; // Evita errori se nascosto
     
-    customGuides.h.forEach((pos, i) => {
+    customGuides.h.forEach((posPct, i) => {
         let g = document.createElement('div'); g.className = 'custom-guide-h';
         container.appendChild(g);
-        gsap.set(g, { y: pos });
-        Draggable.create(g, { type: 'y', onDragEnd: function() { customGuides.h[i] = this.y; saveProject(); } });
+        let pixelPos = (posPct / 100) * rect.height;
+        gsap.set(g, { y: pixelPos });
+        Draggable.create(g, { type: 'y', bounds: "#stage", onDragEnd: function() { 
+            customGuides.h[i] = (this.y / rect.height) * 100; saveProject(); 
+        }});
     });
 
-    customGuides.v.forEach((pos, i) => {
+    customGuides.v.forEach((posPct, i) => {
         let g = document.createElement('div'); g.className = 'custom-guide-v';
         container.appendChild(g);
-        gsap.set(g, { x: pos });
-        Draggable.create(g, { type: 'x', onDragEnd: function() { customGuides.v[i] = this.x; saveProject(); } });
+        let pixelPos = (posPct / 100) * rect.width;
+        gsap.set(g, { x: pixelPos });
+        Draggable.create(g, { type: 'x', bounds: "#stage", onDragEnd: function() { 
+            customGuides.v[i] = (this.x / rect.width) * 100; saveProject(); 
+        }});
     });
 }
+
+// Ricalcola le guide quando allarghi o stringi la pagina
+window.addEventListener('resize', renderCustomGuides);
 
 document.getElementById('btn-generate-grid').addEventListener('click', () => {
     const cols = parseInt(document.getElementById('grid-cols').value) || 1;
     const rows = parseInt(document.getElementById('grid-rows').value) || 1;
     customGuides = { h: [], v: [] };
-    for(let i=1; i<cols; i++) customGuides.v.push((1920 / cols) * i);
-    for(let i=1; i<rows; i++) customGuides.h.push((1080 / rows) * i);
-    renderCustomGuides(); saveProject();
+    
+    for(let i=1; i<cols; i++) customGuides.v.push((100 / cols) * i);
+    for(let i=1; i<rows; i++) customGuides.h.push((100 / rows) * i);
+    
+    showGuides(); renderCustomGuides(); saveProject();
 });
 
 document.getElementById('btn-clear-guides').addEventListener('click', () => {
@@ -119,14 +141,15 @@ document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
     const guides1 = document.getElementById('guides-container');
     const guides2 = document.getElementById('custom-guides-container');
     if(guides1.style.display === 'none') { 
-        guides1.style.display = 'block'; guides2.style.display = 'block';
-        e.target.style.background = '#32D74B'; e.target.style.color = '#000'; e.target.innerText = "⌖ GUIDE ON";
+        showGuides();
     } else { 
         guides1.style.display = 'none'; guides2.style.display = 'none';
         e.target.style.background = '#444'; e.target.style.color = 'white'; e.target.innerText = "⌖ GUIDE OFF";
     }
 });
 
+// Inizializza i righelli all'avvio
+initRulers();
 
 // === UI TESTO ===
 const fontSlider = document.getElementById('font-size-slider');
@@ -142,14 +165,12 @@ function updateLiveText() {
     }
 }
 
-// Deseleziona nel vuoto
 document.getElementById('stage-wrapper').addEventListener('mousedown', (e) => {
     if (e.target.id === 'stage' || e.target.id === 'bg-container' || e.target.id === 'stage-wrapper') {
         if (editingClipIndex > -1) { document.getElementById('btn-update-text').click(); exitEditMode(); }
     }
 });
 
-// Delega Clic sul Testo
 document.getElementById('text-container').addEventListener('mousedown', (e) => {
     if(e.target.classList.contains('resize-handle')) return; 
 
@@ -158,7 +179,7 @@ document.getElementById('text-container').addEventListener('mousedown', (e) => {
         const index = parseInt(clipNode.getAttribute('data-index'));
         if (!isNaN(index) && editingClipIndex !== index) {
             e.stopPropagation();
-            if(editingClipIndex > -1) document.getElementById('btn-update-text').click(); // Salva il vecchio
+            if(editingClipIndex > -1) document.getElementById('btn-update-text').click(); 
             loadClipIntoEditor(index);
         }
     } else if (!clipNode) {
@@ -251,7 +272,6 @@ function loadClipIntoEditor(index) {
     renderTimelineUI(); 
     rebuildMasterTimelineSilently();
     
-    // Ferma al centro della transizione per sicurezza visiva
     if(masterTimeline) masterTimeline.time(clip.start + 0.1);
 }
 
@@ -266,7 +286,7 @@ function exitEditMode() {
 document.getElementById('btn-cancel-edit').addEventListener('click', exitEditMode);
 document.getElementById('zoom-slider').addEventListener('input', (e) => { pixelsPerSecond = parseInt(e.target.value); renderTimelineUI(); updatePlayheadVisuals(); });
 
-// === MOTORE MAGNETICO (SNAPPING) ===
+// === MOTORE MAGNETICO TIMELINE ===
 function snapToClosest(time, trackType, skipIndex = -1) {
     const SNAP_THRESHOLD = 0.3; 
     let closest = time;
@@ -481,20 +501,18 @@ function rebuildMasterTimelineSilently() {
         if (index === editingClipIndex) {
             txtNode.classList.add('is-editing');
             
-            // AGGIUNGI PUNTI CENTRALI (MIDPOINTS) COME SU AFTER EFFECTS
+            // AGGIUNTA DEI MIDPOINTS ADOBE STYLE
             ['t','b','l','r'].forEach(pos => {
                 let m = document.createElement('div');
                 m.className = `handle-mid handle-mid-${pos}`;
                 txtNode.appendChild(m);
             });
             
-            // DRAG SBLOCCATO
             Draggable.create(txtNode, {
                 type: "x,y",
                 onDragEnd: function() { clip.posX = this.x; clip.posY = this.y; }
             });
 
-            // MANIGLIA DI RIDIMENSIONAMENTO
             const handle = document.createElement('div');
             handle.className = 'resize-handle';
             txtNode.appendChild(handle);
@@ -533,7 +551,7 @@ function rebuildMasterTimelineSilently() {
 
     masterTimeline.set({}, {}, MASTER_DURATION);
     masterTimeline.time(savedTime);
-    renderCustomGuides(); // Assicura che le guide rimangano sopra
+    renderCustomGuides(); 
 }
 
 function updatePlayheadVisuals() {
