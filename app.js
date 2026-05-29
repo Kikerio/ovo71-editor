@@ -18,7 +18,7 @@ let selectedTrackType = null;
 let selectedGlobalIndex = -1;
 let clipboard = null;
 
-// === GESTIONE PROGETTI E UI ===
+// === GESTIONE PROGETTI ===
 function saveProject() {
     const projectName = document.getElementById('project-name').value.trim();
     if (!projectName) { alert("INSERISCI UN NOME PER IL PROGETTO PRIMA DI SALVARE."); return; }
@@ -44,17 +44,26 @@ function loadProject(name) {
         const p = projects[name]; currentProjectName = p.name; document.getElementById('project-name').value = p.name;
         MASTER_DURATION = p.duration; document.getElementById('master-duration').value = p.duration;
         currentFontFamily = p.font; trackText = p.tracks.text || []; trackBg = p.tracks.bg || []; trackAudio = p.tracks.audio || [];
-        renderTimelineUI(); rebuildMasterTimelineSilently();
+        exitEditMode();
     }
 }
 
 document.getElementById('btn-save-draft').addEventListener('click', saveProject);
 loadProjectsList();
 
+// === UI E GUIDE ===
 const fontSlider = document.getElementById('font-size-slider');
 const fontNum = document.getElementById('font-size-num');
-fontSlider.addEventListener('input', (e) => fontNum.value = e.target.value);
-fontNum.addEventListener('input', (e) => fontSlider.value = e.target.value);
+fontSlider.addEventListener('input', (e) => { fontNum.value = e.target.value; updateLiveText(); });
+fontNum.addEventListener('input', (e) => { fontSlider.value = e.target.value; updateLiveText(); });
+
+function updateLiveText() {
+    if (editingClipIndex > -1) {
+        trackText[editingClipIndex].fontSize = fontNum.value;
+        const liveNode = document.querySelector(`.clip-text[data-index="${editingClipIndex}"]`);
+        if (liveNode) liveNode.style.fontSize = `${fontNum.value}px`;
+    }
+}
 
 document.getElementById('btn-toggle-guides').addEventListener('click', (e) => {
     const guides = document.getElementById('guides-container');
@@ -72,7 +81,7 @@ document.getElementById('stage-wrapper').addEventListener('mousedown', (e) => {
     }
 });
 
-// Delega Clic sul Viewport (Selezione intelligente che ignora il pallino di resize)
+// Clic Diretto sullo Schermo per Selezionare
 document.getElementById('text-container').addEventListener('mousedown', (e) => {
     if(e.target.classList.contains('resize-handle')) return; 
 
@@ -83,17 +92,21 @@ document.getElementById('text-container').addEventListener('mousedown', (e) => {
             e.stopPropagation();
             loadClipIntoEditor(index);
         }
+    } else if (!clipNode) {
+        if (editingClipIndex > -1) {
+            document.getElementById('btn-update-text').click();
+            exitEditMode();
+        }
     }
 });
 
-// === COPIA E INCOLLA TRAMITE BOTTONI ===
+// === COPIA E INCOLLA VIA UI ===
 document.getElementById('btn-copy-clip').addEventListener('click', () => {
     if (selectedGlobalIndex > -1 && selectedTrackType) {
         let sourceArr = selectedTrackType === 'text' ? trackText : (selectedTrackType === 'bg' ? trackBg : trackAudio);
         clipboard = JSON.parse(JSON.stringify(sourceArr[selectedGlobalIndex]));
-        alert("CLIP COPIATA! Sposta la testina e premi INCOLLA.");
     } else {
-        alert("SELEZIONA UNA CLIP DALLA TIMELINE PRIMA DI COPIARE.");
+        alert("SELEZIONA UNA CLIP NELLA TIMELINE PRIMA DI COPIARE.");
     }
 });
 
@@ -113,7 +126,6 @@ document.getElementById('btn-paste-clip').addEventListener('click', () => {
     renderTimelineUI(); rebuildMasterTimelineSilently();
 });
 
-// Spacebar Play (ignora se stai scrivendo)
 document.addEventListener('keydown', (e) => {
     const activeElement = document.activeElement.tagName;
     if (activeElement === 'INPUT' || activeElement === 'TEXTAREA') return;
@@ -121,6 +133,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('master-duration').addEventListener('change', (e) => { MASTER_DURATION = parseFloat(e.target.value) || 10; renderTimelineUI(); rebuildMasterTimelineSilently(); });
+
 document.getElementById('font-upload').addEventListener('change', async (e) => { const file = e.target.files[0]; if (!file) return; try { const fontUrl = URL.createObjectURL(file); currentFontFamily = 'OVO71_CustomFont'; const customFont = new FontFace(currentFontFamily, `url(${fontUrl})`); await customFont.load(); document.fonts.add(customFont); } catch (err) { alert('ERRORE CARICAMENTO FONT.'); } });
 
 document.getElementById('btn-update-text').addEventListener('click', () => {
@@ -133,7 +146,7 @@ document.getElementById('btn-update-text').addEventListener('click', () => {
         trackText[editingClipIndex].animIn = selectedAnimIn;
         trackText[editingClipIndex].animOut = selectedAnimOut;
         renderTimelineUI(); rebuildMasterTimelineSilently();
-    } else { alert("TESTO E PARAMETRI PRONTI! CLICCA '+ INSERISCI CLIP TESTO'."); }
+    } else { alert("TESTO PRONTO! CLICCA '+ INSERISCI CLIP TESTO'."); }
 });
 
 const setupGrid = (gridId, setterCallback) => { document.querySelectorAll(`${gridId} .preset-btn`).forEach(btn => { btn.addEventListener('click', (e) => { document.querySelectorAll(`${gridId} .preset-btn`).forEach(b => b.classList.remove('active')); e.target.classList.add('active'); setterCallback(e.target.getAttribute('data-anim')); }); }); };
@@ -149,11 +162,17 @@ document.getElementById('btn-add-text').addEventListener('click', () => {
 
 document.querySelectorAll('.color-btn').forEach(btn => { btn.addEventListener('click', (e) => { const color = e.target.getAttribute('data-color'); let startPos = 0; if(trackBg.length > 0) { const last = trackBg[trackBg.length - 1]; startPos = last.start + last.duration; } if (startPos + 2.0 > MASTER_DURATION) startPos = Math.max(0, MASTER_DURATION - 2.0); trackBg.push({ color: color, duration: 2.0, start: startPos }); renderTimelineUI(); rebuildMasterTimelineSilently(); }); });
 document.getElementById('btn-add-audio').addEventListener('click', () => { const file = document.getElementById('audio-upload').files[0]; if (!file) return; const url = URL.createObjectURL(file); const audioEl = document.getElementById('master-audio'); audioEl.src = url; audioEl.onloadedmetadata = () => { let dur = audioEl.duration; if (dur > MASTER_DURATION) dur = MASTER_DURATION; trackAudio = [{ url: url, duration: dur, start: 0 }]; renderTimelineUI(); rebuildMasterTimelineSilently(); }; });
-document.getElementById('btn-clear-timeline').addEventListener('click', () => { trackText = []; trackBg = []; trackAudio = []; document.getElementById('master-audio').src = ""; exitEditMode(); renderTimelineUI(); rebuildMasterTimelineSilently(); });
+document.getElementById('btn-clear-timeline').addEventListener('click', () => { trackText = []; trackBg = []; trackAudio = []; document.getElementById('master-audio').src = ""; exitEditMode(); });
 
 function loadClipIntoEditor(index) {
-    editingClipIndex = index; const clip = trackText[index];
-    selectedTrackType = 'text'; selectedGlobalIndex = index;
+    if (editingClipIndex !== -1 && editingClipIndex !== index) {
+        document.getElementById('btn-update-text').click();
+    }
+
+    editingClipIndex = index; 
+    selectedTrackType = 'text'; 
+    selectedGlobalIndex = index;
+    const clip = trackText[index];
     
     document.getElementById('sidebar-title').textContent = "MODIFICA CLIP";
     document.getElementById('text-input').value = clip.text.replace(/<br>/g, '\n');
@@ -169,9 +188,12 @@ function loadClipIntoEditor(index) {
     document.getElementById('btn-cancel-edit').style.display = "flex";
     
     if(isPlaying) document.getElementById('btn-play-pause').click();
-    masterTimeline.time(clip.start);
     
-    renderTimelineUI(); rebuildMasterTimelineSilently();
+    renderTimelineUI(); 
+    rebuildMasterTimelineSilently();
+    
+    // Sicurezza per la visibilità: andiamo avanti di 0.1s rispetto all'inizio per evitare l'opacità zero
+    if(masterTimeline) masterTimeline.time(clip.start + 0.1);
 }
 
 function exitEditMode() {
@@ -187,7 +209,7 @@ document.getElementById('zoom-slider').addEventListener('input', (e) => { pixels
 
 // === MOTORE MAGNETICO PER TIMELINE ===
 function snapToClosest(time, trackType, skipIndex = -1) {
-    const SNAP_THRESHOLD = 0.3; // Calamita di 0.3 secondi
+    const SNAP_THRESHOLD = 0.3; 
     let closest = time;
     let minDiff = SNAP_THRESHOLD;
 
@@ -232,7 +254,12 @@ function renderTimelineUI() {
         if (laneId === 'lane-bg') block.style.backgroundColor = clip.color;
 
         const delBtn = document.createElement('button'); delBtn.className = 'delete-clip-btn'; delBtn.innerHTML = '✕';
-        delBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); array.splice(index, 1); renderTimelineUI(); rebuildMasterTimelineSilently(); });
+        delBtn.addEventListener('mousedown', (e) => { 
+            e.stopPropagation(); 
+            if (index === editingClipIndex && trackType === 'text') exitEditMode();
+            array.splice(index, 1); 
+            renderTimelineUI(); rebuildMasterTimelineSilently(); 
+        });
         block.appendChild(delBtn);
 
         const resizerL = document.createElement('div'); resizerL.className = 'resizer resizer-left';
@@ -398,9 +425,9 @@ function rebuildMasterTimelineSilently() {
         if (index === editingClipIndex) {
             txtNode.classList.add('is-editing');
             
+            // IL TESTO ORA PUÒ USCIRE DAI MARGINI SENZA LIMITI (bounds RIMOSSI)
             Draggable.create(txtNode, {
                 type: "x,y",
-                bounds: "#stage",
                 onDragEnd: function() { clip.posX = this.x; clip.posY = this.y; }
             });
 
@@ -408,13 +435,14 @@ function rebuildMasterTimelineSilently() {
             handle.className = 'resize-handle';
             txtNode.appendChild(handle);
 
+            // LOGICA DI RESIZE VETTORIALE TIPO AFTER EFFECTS
             handle.addEventListener('mousedown', (e) => {
                 e.stopPropagation(); 
-                let startY = e.clientY;
+                let startX = e.clientX;
                 let startSize = parseInt(clip.fontSize) || 120;
                 
                 const onMove = (ev) => {
-                    let diff = ev.clientY - startY; 
+                    let diff = ev.clientX - startX; // Tiri verso l'esterno per ingrandire
                     let newSize = Math.max(10, startSize + diff);
                     clip.fontSize = newSize;
                     txtNode.style.fontSize = `${newSize}px`;
@@ -426,7 +454,7 @@ function rebuildMasterTimelineSilently() {
             });
         }
 
-        // Usa autoAlpha al posto di opacity per risolvere il bug della sovrapposizione!
+        // Usa autoAlpha per nascondere FISICAMENTE la clip quando non deve essere vista
         masterTimeline.set(layer, { autoAlpha: 1 }, clip.start);
         
         const effectDur = 0.5;
