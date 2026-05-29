@@ -1,0 +1,127 @@
+:root {
+    --ovo-orange: #E65A28; 
+    --ovo-cream: #FDFCE9;
+    --ovo-black: #121212;
+    --ovo-white: #FFFFFF;
+    --bg-base: #0f0f0f;
+    --bg-panel: #1c1c1e;
+    --bg-element: #2c2c2e;
+    --text-main: #f5f5f7;
+    --text-muted: #86868b;
+    --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-base); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* PANNELLO LATERALE (SIDEBAR) */
+#sidebar { width: 380px; background: var(--bg-panel); padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; border-right: 1px solid #333; z-index: 10; transition: all 0.3s ease; }
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
+
+/* HEADER E STILI TIPOGRAFICI */
+h2, .section-title, label, .project-tag { text-transform: uppercase; font-weight: 400; }
+
+.section-title { font-size: 11px; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 8px; }
+.section-divider { border: 0; border-bottom: 1px solid #333; margin: 16px 0; width: 100%; }
+
+.control-group { background: var(--bg-element); padding: 12px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px; }
+
+label { font-size: 11px; color: #bbb; }
+input[type="text"], input[type="number"], input[type="file"], select, textarea { background: #1c1c1e; color: white; border: 1px solid #444; padding: 12px; border-radius: 6px; font-size: 12px; width: 100%; outline: none; transition: border-color 0.2s; }
+input:focus, textarea:focus { border-color: var(--ovo-orange); }
+textarea { resize: vertical; min-height: 40px; }
+
+.row { display: flex; gap: 10px; align-items: center; }
+.row > div { flex: 1; display: flex; flex-direction: column; }
+input[type="range"] { width: 100%; margin: 5px 0; accent-color: var(--ovo-orange); }
+
+button { padding: 10px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; text-transform: uppercase; }
+button:hover { filter: brightness(1.1); transform: scale(0.98); }
+button:active { transform: scale(0.95); }
+
+/* Bottoni Specifici */
+.btn-update { background: #444; color: white; padding: 8px; font-size: 10px; margin-top: 2px; }
+.btn-add { background: var(--ovo-orange); color: var(--ovo-cream); margin-top: 5px; }
+.btn-audio { background: #0A84FF; color: white; }
+.btn-cancel { background: transparent; border: 1px solid #666; color: #ccc; display: none; }
+
+/* Griglie e Colori (Pills grandi e invert on hover) */
+.preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.preset-btn, .project-tag { background: #3a3a3c; color: #ddd; border: 1px solid transparent; padding: 12px 14px; font-size: 11px; border-radius: 6px; text-align: center; text-transform: uppercase; font-weight: 400; transition: all 0.2s; cursor: pointer; }
+.preset-btn:hover, .project-tag:hover { background: #ddd; color: #3a3a3c; font-weight: bold; } 
+.preset-btn.active, .project-tag.active { background: var(--ovo-orange); color: var(--ovo-cream); font-weight: bold; }
+
+.color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.color-btn { height: 28px; border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
+.color-btn:hover { border-color: white; }
+
+/* WORKSPACE DESTRA (STAGE + TIMELINE) */
+#right-workspace { flex: 1; display: flex; flex-direction: column; background: #000; overflow: hidden; }
+
+/* STAGE 16:9 */
+#stage-wrapper { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; background: #111; position: relative;}
+#stage { width: 100%; max-width: 1280px; aspect-ratio: 16/9; background: transparent; position: relative; overflow: hidden; perspective: 1000px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-radius: 4px; border: 1px solid #333;}
+
+#bg-container, #text-container { position: absolute; top:0; left:0; width:100%; height:100%; }
+#text-container { z-index: 2; pointer-events: none;}
+
+/* Margine Fisso 40px dallo stage per il testo */
+.clip-layer { position: absolute; top: 40px; left: 40px; width: calc(100% - 80px); height: calc(100% - 80px); display: flex; box-sizing: border-box; opacity: 0; }
+.clip-text { margin: 0; line-height: 1.2; word-break: break-word; width: 100%; max-height: 100%; transform-style: preserve-3d; }
+
+/* TIMELINE */
+#timeline-panel { height: 280px; background: var(--bg-panel); border-top: 1px solid #333; display: flex; flex-direction: column; }
+#timeline-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1c1c1e; border-bottom: 1px solid #333;}
+.toolbar-group { display: flex; gap: 12px; align-items: center; }
+.btn-play { background: #32D74B; color: #000; width: 80px; border-radius: 15px;}
+.btn-export { background: #FF453A; color: white; border-radius: 15px; }
+
+/* Layout Strutturale Timeline */
+#timeline-layout { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+/* Headers Tracce */
+#track-headers { width: 80px; background: #222; display: flex; flex-direction: column; border-right: 1px solid #444; z-index: 20; box-shadow: 2px 0 5px rgba(0,0,0,0.3);}
+.header-ruler-space { height: 24px; background: #1a1a1c; border-bottom: 1px solid #444;}
+.track-header { height: 50px; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; color: #888; border-bottom: 1px solid #333; background: #1c1c1e; text-transform: uppercase;}
+
+/* Area Scrollabile */
+#timeline-scroll-area { flex: 1; overflow-x: auto; overflow-y: hidden; position: relative; background: #111; display: flex; flex-direction: column;}
+
+/* Righello e Testina */
+#ruler-container { height: 24px; background: #1a1a1c; border-bottom: 1px solid #444; position: relative; min-width: 100%; cursor: text; }
+.ruler-tick { position: absolute; border-left: 1px solid #555; height: 6px; bottom: 0; font-size: 9px; color: #888; padding-left: 3px; user-select: none; pointer-events: none;}
+#playhead { position: absolute; top: 0; left: 0px; width: 1px; height: 1000px; background: #FF453A; z-index: 100; pointer-events: none;}
+#playhead::before { content: ''; position: absolute; top: 0; left: -5px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 8px solid #FF453A; }
+
+/* Tracce */
+.track-lane { height: 50px; position: relative; min-width: 100%; border-bottom: 1px solid #222; background: #111; }
+
+/* Blocchi Clip e Maniglie */
+.timeline-block { position: absolute; height: 70%; top: 15%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px; font-size: 10px; font-weight: 600; overflow: hidden; white-space: nowrap; user-select: none; cursor: grab; box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: filter 0.1s; text-transform: uppercase;}
+.timeline-block:active { cursor: grabbing; filter: brightness(1.2); }
+.timeline-block.editing-block { border: 2px solid white; box-shadow: 0 0 10px rgba(255,255,255,0.4); }
+
+.block-text { background: #0A84FF; color: white; }
+.block-bg { background: #555; color: white; border: 1px solid rgba(255,255,255,0.3); }
+.block-audio { background: #32D74B; color: black; }
+
+.resizer { position: absolute; top: 0; width: 8px; height: 100%; background: rgba(255,255,255,0.1); cursor: ew-resize; z-index: 10;}
+.resizer:hover { background: rgba(255,255,255,0.4); }
+.resizer-left { left: 0; border-right: 1px solid rgba(0,0,0,0.2);}
+.resizer-right { right: 0; border-left: 1px solid rgba(0,0,0,0.2);}
+
+.delete-clip-btn { position: absolute; right: 8px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 8px; cursor: pointer; display: none; justify-content: center; align-items: center; padding: 0; z-index: 11;}
+.timeline-block:hover .delete-clip-btn { display: flex; }
+.delete-clip-btn:hover { background: #FF453A; }
+
+/* Classi Layout Stage */
+.align-left { text-align: left; } 
+.align-center { text-align: center; } 
+.align-right { text-align: right; }
+.align-justify { text-align: justify; }
+.align-justify-all { text-align: justify; text-align-last: justify; }
+
+.valign-top { align-items: flex-start; } 
+.valign-center { align-items: center; } 
+.valign-bottom { align-items: flex-end; }

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVO71 - Motion Editor Pro</title>
+    
+    <script src="coi-serviceworker.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://unpkg.com/split-type"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="sidebar">
+        <div>
+            <h2 id="sidebar-title" style="margin:0 0 4px 0; color:var(--ovo-orange); font-size: 18px;">MOTION EDITOR</h2>
+            <label id="sidebar-desc" style="font-size:11px; color:var(--text-muted); margin:0; display:block;">IMPOSTA I PARAMETRI E INSERISCI NELLA TRACCIA.</label>
+        </div>
+        
+        <hr class="section-divider">
+
+        <div class="control-group">
+            <h2 class="section-title" style="color: #FFC107;">I MIEI PROGETTI</h2>
+            <div class="preset-grid" id="projects-list">
+                </div>
+            <div class="row" style="margin-top: 8px;">
+                <input type="text" id="project-name" placeholder="NOME PROGETTO...">
+                <button id="btn-save-draft" class="btn-add">SALVA BOZZA</button>
+            </div>
+        </div>
+
+        <hr class="section-divider">
+        
+        <div class="control-group">
+            <h2 class="section-title" style="color: #0A84FF;">TRACCIA 1: TESTO ANIMATO</h2>
+            <input type="file" id="font-upload" accept=".otf,.ttf">
+            
+            <textarea id="text-input" placeholder="SCRIVI IL TESTO QUI...">OVO71</textarea>
+            <button id="btn-update-text" class="btn-update">✓ AGGIORNA TESTO E ANTEPRIMA</button>
+            
+            <div class="row" style="margin-top: 6px;">
+                <div>
+                    <label>DIMENSIONE FONT</label>
+                    <div style="display:flex; gap: 8px;">
+                        <input type="range" id="font-size-slider" min="10" max="400" value="120" style="flex:2;">
+                        <input type="number" id="font-size-num" value="120" min="10" max="400" style="flex:1;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div>
+                    <label>COLORE TESTO</label>
+                    <select id="color-text-preset">
+                        <option value="#E65A28">ARANCIONE OVO</option>
+                        <option value="#FDFCE9">CREMA OVO</option>
+                        <option value="#121212">NERO</option>
+                        <option value="#FFFFFF">BIANCO</option>
+                    </select>
+                </div>
+                <div>
+                    <label>ALLINEAMENTO</label>
+                    <select id="horiz-align">
+                        <option value="align-left">SX</option>
+                        <option value="align-center" selected>CX</option>
+                        <option value="align-right">DX</option>
+                        <option value="align-justify">GIUSTIFICATO</option>
+                        <option value="align-justify-all">PACCHETTO</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div>
+                    <label>TARGET ANIM.</label>
+                    <select id="anim-target">
+                        <option value="chars" selected>LETTERE</option>
+                        <option value="words">PAROLE</option>
+                    </select>
+                </div>
+            </div>
+
+            <label style="margin-top:4px;">ANIMAZIONE ENTRATA</label>
+            <div class="preset-grid" id="grid-in">
+                <button class="preset-btn active" data-anim="fade">FADE</button>
+                <button class="preset-btn" data-anim="blur">BLUR IN</button>
+                <button class="preset-btn" data-anim="cinematicZoom">CINE ZOOM</button>
+                <button class="preset-btn" data-anim="drop">DROP</button>
+                <button class="preset-btn" data-anim="slideRight">SLIDE R</button>
+                <button class="preset-btn" data-anim="typewriter">TYPE</button>
+            </div>
+
+            <label>ANIMAZIONE USCITA</label>
+            <div class="preset-grid" id="grid-out">
+                <button class="preset-btn active" data-anim="none">NESSUNA</button>
+                <button class="preset-btn" data-anim="fade">FADE OUT</button>
+                <button class="preset-btn" data-anim="zoomOut">ZOOM OUT</button>
+            </div>
+
+            <button id="btn-add-text" class="btn-add">+ INSERISCI CLIP TESTO</button>
+            <button id="btn-cancel-edit" class="btn-cancel">✕ ANNULLA MODIFICA</button>
+        </div>
+
+        <hr class="section-divider">
+
+        <div class="control-group">
+            <h2 class="section-title" style="color: #bbb;">TRACCIA 2: SFONDO</h2>
+            <div class="color-grid">
+                <button class="color-btn" style="background: var(--ovo-orange);" data-color="#E65A28" title="Arancione"></button>
+                <button class="color-btn" style="background: var(--ovo-cream);" data-color="#FDFCE9" title="Crema"></button>
+                <button class="color-btn" style="background: var(--ovo-black);" data-color="#121212" title="Nero"></button>
+                <button class="color-btn" style="background: var(--ovo-white);" data-color="#FFFFFF" title="Bianco"></button>
+            </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <div class="control-group">
+            <h2 class="section-title" style="color: #32D74B;">TRACCIA 3: AUDIO</h2>
+            <input type="file" id="audio-upload" accept=".mp3,.wav">
+            <button id="btn-add-audio" class="btn-audio">+ CARICA AUDIO</button>
+        </div>
+    </div>
+
+    <div id="right-workspace">
+        
+        <div id="stage-wrapper">
+            <div id="stage">
+                <canvas id="export-canvas" width="1920" height="1080" style="display:none;"></canvas>
+                
+                <div id="bg-container"></div>
+                <div id="text-container"></div>
+            </div>
+        </div>
+        
+        <div id="timeline-panel">
+            <div id="timeline-toolbar">
+                <div class="toolbar-group">
+                    <button id="btn-play-pause" class="btn-play">▶ PLAY</button>
+                    <label style="margin-left:10px;">ZOOM:</label>
+                    <input type="range" id="zoom-slider" min="20" max="150" value="50" style="width: 100px;">
+                </div>
+                <div class="toolbar-group">
+                    <label>DURATA MASTER (S):</label>
+                    <input type="number" id="master-duration" value="10.0" min="2" max="60" style="width: 60px;">
+                    <button id="btn-clear-timeline" style="background: transparent; border:1px solid #666; color: #ccc;">SVUOTA</button>
+                    <button id="btn-export-mp4" class="btn-export">⏺ ESPORTA MP4</button>
+                </div>
+            </div>
+            
+            <div id="timeline-layout">
+                <div id="track-headers">
+                    <div class="header-ruler-space"></div>
+                    <div class="track-header">TESTO</div>
+                    <div class="track-header">SFONDO</div>
+                    <div class="track-header">AUDIO</div>
+                </div>
+
+                <div id="timeline-scroll-area">
+                    <div id="ruler-container"><div id="playhead"></div></div>
+                    <div class="track-lane" id="lane-text"></div>
+                    <div class="track-lane" id="lane-bg"></div>
+                    <div class="track-lane" id="lane-audio"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="master-audio" style="display:none;"></audio>
+
+    <script src="app.js"></script>
+    <script src="export.js"></script>
+</body>
+</html>
